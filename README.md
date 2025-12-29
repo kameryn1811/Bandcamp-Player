@@ -27,7 +27,7 @@ A compact, convenient Python-based mini player for streaming music directly from
 
 *Note: Mini mode features optional player autohide so the artwork is fully viewable*
 
-*Note: Nano mode features optional autohide when docked*
+*Note: Nano mode features optional autohide when docked to the top or bottom of the screen*
 
 <img width="600" alt="main-player-interface" src="images/player modes.png" />
 
@@ -138,6 +138,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
