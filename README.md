@@ -15,7 +15,7 @@ A compact, convenient Python-based mini player for streaming music directly from
 * **Compact Interface** - Minimal window design that stays out of your way.
 * **Multiple View Modes** - Regular, Mini, Micro, and Nano modes available for different use cases.
 * **Playlist Management** - Create and manage playlists of your favorite Bandcamp albums.
-* **Detachable Playlist** - Detach the playlist window for flexible window management.
+* **Adjustable Playlist** - Minimize, expand, resize or detach the playlist for flexible window management.
 * **Always on Top** - Keep the player visible while working in other applications.
 * **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more.
 * **Autoplay** - Automatically starting playing on startup and when switching albums. 
@@ -134,6 +134,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
