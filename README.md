@@ -35,17 +35,6 @@ A compact, convenient Python-based mini player for streaming music directly from
 
 <img width="600" alt="playlist-modes" src="images/playlist modes.png" />
 
-### Shuffle & Repeat Modes  <img alt="shuffle-repeat" src="images/shuffle-repeat.png" />
-
-- <img alt="shuffle-tracks" src="images/shuffle-tracks.png" /> **Shuffle Tracks** – shuffle tracks within the current album  
-- <img alt="shuffle-album" src="images/shuffle-album.png" /> **Shuffle Albums** – play albums in random order  
-- <img alt="super-shuffle" src="images/super-shuffle.png" /> **Super Shuffle** – completely random tracks and albums; avoids recent repeats  
-- <img alt="continuous" src="images/continuous.png" /> **Continuous Repeat** – plays through entire playlist (default)  
-- <img alt="repeat-album" src="images/repeat-album.png" /> **Repeat Album** – loops current album  
-- <img alt="repeat-1" src="images/repeat-1.png" /> **Repeat Track** – loops current track (shows "1" on button)  
-
-**Combinations:** Shuffle and Repeat work together (e.g., *Shuffle Tracks + Repeat Album* loops shuffled tracks; *Super Shuffle + Repeat Off* plays random tracks without immediate repeats).
-
 ## Technology & Approach
 
 Bandcamp doesn’t provide a public API for music playback, playlists, or track data (its official APIs are limited to sales and merchandise for artists and labels). As a work around Bandcamp Player embeds Bandcamp’s own mobile web player in a desktop app, preserving the Bandcamp experience while adding lightweight desktop features.
@@ -75,6 +64,17 @@ Bandcamp doesn’t provide a public API for music playback, playlists, or track 
 3. **Controls**: Use the player controls or keyboard shortcuts to navigate tracks.
 4. **Modes**: Switch between Regular, Mini, Micro, and Nano modes from the settings menu.
 5. **Playlists**: Create multiple playlists and switch between them using the playlist menu.
+
+## Shuffle & Repeat Modes  <img alt="shuffle-repeat" src="images/shuffle-repeat.png" />
+
+- <img alt="shuffle-tracks" src="images/shuffle-tracks.png" /> **Shuffle Tracks** – shuffle tracks within the current album  
+- <img alt="shuffle-album" src="images/shuffle-album.png" /> **Shuffle Albums** – play albums in random order  
+- <img alt="super-shuffle" src="images/super-shuffle.png" /> **Super Shuffle** – completely random tracks and albums; avoids recent repeats  
+- <img alt="continuous" src="images/continuous.png" /> **Continuous Repeat** – plays through entire playlist (default)  
+- <img alt="repeat-album" src="images/repeat-album.png" /> **Repeat Album** – loops current album  
+- <img alt="repeat-1" src="images/repeat-1.png" /> **Repeat Track** – loops current track (shows "1" on button)  
+
+**Combinations:** Shuffle and Repeat work together (e.g., *Shuffle Tracks + Repeat Album* loops shuffled tracks; *Super Shuffle + Repeat Off* plays random tracks without immediate repeats).
 
 ## Keyboard Shortcuts
 
@@ -138,6 +138,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
