@@ -6,6 +6,8 @@
 
 </div>
 
+A compact, convenient Python-based mini player for streaming music directly from Bandcamp. Perfect for previewing albums and discovering new music you want to support.
+
 ## Key Features
 
 * **Executable** - Available in .exe format, simply download and run.
@@ -20,8 +22,6 @@
 * **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
 * **Volume Control** - Adjustable volume with visual feedback.
 * **Dark Theme** - Beautiful dark interface that's easy on the eyes.
-
-A compact, convenient Python-based mini player for streaming music directly from Bandcamp. Perfect for previewing albums and discovering new music you want to support.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
 
@@ -134,6 +134,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
