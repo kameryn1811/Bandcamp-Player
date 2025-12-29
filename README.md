@@ -39,10 +39,10 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 ### Core Stack
 
-- **PyQt6** – Cross-platform desktop framework for window management, system tray integration, and media keys  
+- **PyQt6** – Cross-platform desktop framework for window management
 - **PyQt6-WebEngine** – Embedded Chromium browser used to load Bandcamp’s mobile site with full DOM access  
-- **qtawesome** – FontAwesome icons with emoji fallback
-
+- **QtAwesome** – FontAwesome icons
+  
 ## Quick Start
 
 **Installation**
@@ -122,7 +122,11 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 ## Credits & Inspiration
 
-This project provides a convenient way to stream music from Bandcamp in a compact, always-accessible player interface.
+This project was inspired by [Robert Golderbine's Companion Window | Always on Top] (https://chromewebstore.google.com/detail/companion-window-always-o/hhneckfekhpegclkfhefepcjmcnmnpae) and [Yuki Eliot's Mobile View Switcher](https://chromewebstore.google.com/detail/mobile-view-switcher/ddfcjnekgmblacbpifjdmcbbhfcdekic) Extensions. Prior to this project I was using a modified version of these to achieve a Mini BandCamp Player. 
+
+*Original Bandcamp Player using a modified version of Companion Window with Mobile View Switcher*
+
+<img alt="main-player-interface" src="images/OGBandcampPlayer.png" />
 
 ## Legal & Ethical Use
 
@@ -136,6 +140,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
