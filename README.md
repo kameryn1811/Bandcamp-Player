@@ -10,13 +10,13 @@ A compact, convenient Python-based mini player for streaming music directly from
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
 
-<img width="600" alt="screenshot-main" src="images/player modes.png" />
+<img width="600" alt="main-player-interface" src="images/player modes.png" />
 
 *The main player interface with compact playlist, expanded playlist and detached playlist*
 
-<img width="600" alt="screenshot-main" src="images/playlist modes.png" />
+<img width="600" alt="playlist-modes" src="images/playlist modes.png" />
 
-### Shuffle & Repeat Modes
+### Shuffle & Repeat Modes <img alt="shuffle-repeat" src="images/shuffle-repeat.png" />
 
 - **Shuffle Tracks** – shuffle tracks within the current album  
 - **Shuffle Albums** – play albums in random order  
@@ -27,8 +27,6 @@ A compact, convenient Python-based mini player for streaming music directly from
 - **Repeat Track** – loops current track (shows "1" on button)  
 
 **Combinations:** Shuffle and Repeat work together (e.g., *Shuffle Tracks + Repeat Album* loops shuffled tracks; *Super Shuffle + Repeat Off* plays random tracks without immediate repeats).
-
-<img width="600" alt="screenshot-main" src="images/Playback modes.png" />
 
 ## Key Features
 
@@ -137,6 +135,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
