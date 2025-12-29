@@ -18,24 +18,15 @@ A compact, convenient Python-based mini player for streaming music directly from
 
 ### Shuffle & Repeat Modes
 
-Bandcamp Player offers **4 shuffle modes** and **4 repeat modes**, which can be combined for flexible playback. Cycle through each by clicking the respective button.
+- **Shuffle Tracks** – shuffle tracks within the current album  
+- **Shuffle Albums** – play albums in random order  
+- **Super Shuffle** – completely random tracks and albums; avoids recent repeats  
+ 
+- **Continuous Repeat** – plays through entire playlist (default)  
+- **Repeat Album** – loops current album  
+- **Repeat Track** – loops current track (shows "1" on button)  
 
-**Shuffle Modes**
-1. **Off (Mode 0)** – Normal playback order; next/previous work as usual.
-2. **Tracks (Mode 1)** – Shuffles tracks within the current album; next/previous navigates shuffled tracks; loops with Repeat Album if active.
-3. **Albums (Mode 2)** – Plays albums in random order; moves to a random album when the last track finishes.
-4. **Super Shuffle (Mode 3)** – Completely random track and album selection; avoids repeating the last 3 played tracks; works with next/previous buttons.
-
-**Repeat Modes**
-1. **Off (Mode 0)** – Plays through the playlist once and stops.
-2. **Continuous (Mode 1)** – Plays through the entire playlist, moving to the next album automatically (default).
-3. **Album (Mode 2)** – Loops the current album until manually changed.
-4. **Track (Mode 3)** – Loops the current track; displays a "1" overlay on the repeat button.
-
-**Mode Combinations**  
-Shuffle and Repeat modes can be combined. For example:  
-- *Shuffle Tracks + Repeat Album* → randomized tracks that loop within the album  
-- *Super Shuffle + Repeat Off* → random tracks that don’t repeat until all have played
+**Combinations:** Shuffle and Repeat work together (e.g., *Shuffle Tracks + Repeat Album* loops shuffled tracks; *Super Shuffle + Repeat Off* plays random tracks without immediate repeats).
 
 <img width="600" alt="screenshot-main" src="images/Playback modes.png" />
 
@@ -146,6 +137,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
