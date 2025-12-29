@@ -21,6 +21,7 @@ A compact, convenient Python-based mini player for streaming music directly from
 * **Autoplay** - Automatically starting playing on startup and when switching albums. 
 * **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
 * **Volume Control** - Adjustable volume with visual feedback.
+  **Image Viewer** - Clicking on the cover art allows you to zoom and pan the artwork for a better look. 
 * **Dark Theme** - Beautiful dark interface that's easy on the eyes.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
@@ -134,6 +135,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
