@@ -122,9 +122,9 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 ## Credits & Inspiration
 
-This project was inspired by [Robert Golderbine's Companion Window | Always on Top](https://chromewebstore.google.com/detail/companion-window-always-o/hhneckfekhpegclkfhefepcjmcnmnpae) and [Yuki Eliot's Mobile View Switcher](https://chromewebstore.google.com/detail/mobile-view-switcher/ddfcjnekgmblacbpifjdmcbbhfcdekic) Extensions. Prior to this project I was using a modified version of these to achieve a Mini BandCamp Player. 
+This project was inspired by [Robert Golderbine's Companion Window | Always on Top](https://chromewebstore.google.com/detail/companion-window-always-o/hhneckfekhpegclkfhefepcjmcnmnpae) and [Yuki Eliot's Mobile View Switcher](https://chromewebstore.google.com/detail/mobile-view-switcher/ddfcjnekgmblacbpifjdmcbbhfcdekic). Prior to this project I was using a modified version of these Browser Extenstions to achieve a Mini BandCamp Player (It featured a compact bandcamp mode that stripped away everything but the player and playlist, and had 3 view modes - but needed to be launched for each album individually).
 
-*Original Bandcamp Player using a modified version of Companion Window with Mobile View Switcher*
+*Original Bandcamp Player using a modified version of Companion Window in combination with Mobile View Switcher:*
 
 <img alt="main-player-interface" src="images/OGBandcampPlayer.png" />
 
@@ -140,6 +140,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
