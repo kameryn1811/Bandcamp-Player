@@ -57,11 +57,12 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 ## Usage
 
-1. **Add URLs**: Drag and drop Bandcamp URLs into the main window or playlist, or use the add button.
-2. **Play Music**: Click on any item in the playlist to start playing.
-3. **Controls**: Use the player controls or keyboard shortcuts to navigate tracks.
-4. **Modes**: Switch between Regular, Mini, Micro, and Nano modes from the settings menu.
-5. **Playlists**: Create multiple playlists and switch between them using the playlist menu.
+1. **Add URLs**: Drag and drop or Paste Bandcamp URLs into the main window (to load it right away) or into the playlist (to create a queue).
+2. **Play Music**: Double click on an album in the playlist to load the url and start playing.
+3. **Track Controls**: Use the bandcamp play controls or keyboard shortcuts to navigate tracks.
+4. **Playlist Controls**: Use the Playlist controls to navigate albums and playback modes or adjust the playlist size or position.
+5. **Window Modes**: Switch between Regular, Mini, Micro, and Nano modes from the title bar.
+6. **Playlists**: Create multiple playlists and switch between them using the playlist menu.
 
 ## Shuffle & Repeat Modes  <img alt="shuffle-repeat" src="images/shuffle-repeat.png" />
 
@@ -140,6 +141,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
