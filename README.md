@@ -6,6 +6,21 @@
 
 </div>
 
+## Key Features
+
+* **Executable** - Available in .exe format, simply download and run.
+* **Automatic Updates** - Select automatic updates or check now to be notified when there is a new update and accept to install it automatically.
+* **Compact Interface** - Minimal window design that stays out of your way.
+* **Multiple View Modes** - Regular, Mini, Micro, and Nano modes available for different use cases.
+* **Playlist Management** - Create and manage playlists of your favorite Bandcamp albums.
+* **Detachable Playlist** - Detach the playlist window for flexible window management.
+* **Always on Top** - Keep the player visible while working in other applications.
+* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more.
+* **Autoplay** - Automatically starting playing on startup and when switching albums. 
+* **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
+* **Volume Control** - Adjustable volume with visual feedback.
+* **Dark Theme** - Beautiful dark interface that's easy on the eyes.
+
 A compact, convenient Python-based mini player for streaming music directly from Bandcamp. Perfect for previewing albums and discovering new music you want to support.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
@@ -26,21 +41,6 @@ A compact, convenient Python-based mini player for streaming music directly from
 - <img alt="repeat-1" src="images/repeat-1.png" /> **Repeat Track** – loops current track (shows "1" on button)  
 
 **Combinations:** Shuffle and Repeat work together (e.g., *Shuffle Tracks + Repeat Album* loops shuffled tracks; *Super Shuffle + Repeat Off* plays random tracks without immediate repeats).
-
-## Key Features
-
-* **Executable** - Available in .exe format, simply download and run.
-* **Automatic Updates** - Select automatic updates or check now to be notified when there is a new update and accept to install it automatically.
-* **Compact Interface** - Minimal window design that stays out of your way.
-* **Multiple View Modes** - Regular, Mini, Micro, and Nano modes available for different use cases.
-* **Playlist Management** - Create and manage playlists of your favorite Bandcamp albums.
-* **Always on Top** - Keep the player visible while working in other applications.
-* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more.
-* **Detachable Playlist** - Detach the playlist window for flexible window management.
-* **Autoplay** - Automatically starting playing on startup and when switching albums. 
-* **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
-* **Volume Control** - Adjustable volume with visual feedback.
-* **Dark Theme** - Beautiful dark interface that's easy on the eyes.
 
 ## Technology & Approach
 
@@ -134,6 +134,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
