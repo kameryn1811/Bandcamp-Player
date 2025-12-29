@@ -31,10 +31,6 @@ A compact, convenient Python-based mini player for streaming music directly from
 
 <img width="600" alt="main-player-interface" src="images/player modes.png" />
 
-*The main player interface with compact playlist, expanded playlist and detached playlist*
-
-<img width="600" alt="playlist-modes" src="images/playlist modes.png" />
-
 ## Technology & Approach
 
 Bandcamp doesn’t provide a public API for music playback, playlists, or track data (its official APIs are limited to sales and merchandise for artists and labels). As a work around Bandcamp Player embeds Bandcamp’s own mobile web player in a desktop app, preserving the Bandcamp experience while adding lightweight desktop features.
@@ -138,6 +134,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
