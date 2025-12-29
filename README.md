@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="images/icon-title.png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition)
+# <img src="images/icon-title.png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition) - Coming Soon
 
 [![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/)
 
@@ -134,6 +134,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
