@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "download_url": "https://www.dropbox.com/scl/fi/PLACEHOLDER/BandcampPlayer.exe?rlkey=PLACEHOLDER&st=PLACEHOLDER&dl=1",
+  "file_size": 0,
+  "release_date": "2025-01-XX",
+  "notes": "Update this file when releasing a new launcher.exe.",
+  "important": "Change dl=0 to dl=1 in the Dropbox URL for direct download."
+}
+
