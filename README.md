@@ -78,12 +78,20 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 ## Keyboard Shortcuts
 
 * **Space** - Play/Pause
-* **Left Arrow** - Previous track
-* **Right Arrow** - Next track
-* **Up Arrow** - Volume up
-* **Down Arrow** - Volume down
-* **F12** - Developer Tools
+* **Play/Pause** - Ctrl + Alt + Space
+* **Next Track** - Ctrl + Alt + Right
+* **Previous Track** - Ctrl + Alt + Left
+* **Next Album** - Ctrl + Shift + Alt + Right
+* **Previous Album** - Ctrl + Shift + Alt + Left
+* **Volume Up** - Ctrl + Shift + Up
+* **Volume Down** - Ctrl + Shift + Down
+* **Mute** - Ctrl + Shift + M
+* **Toggle Playlist** - Ctrl + Alt + P
+* **Expand/Collapse Playlist** - Ctrl + Shift + Alt + P
+* **Cycle App Mode** - Ctrl + Alt + M
+* **Save Playlist** - Ctrl + S
 * And more... (see Settings > Keyboard Shortcuts)
+* Note: Global keyboard shortcuts require ([Autohotkey v2](https://www.autohotkey.com/v2/) to be installed and the included `bandcamp_player_hotkeys.ahk` script to be running. 
 
 ## Troubleshooting
 
@@ -124,7 +132,7 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 - Verify write permissions for the app directory
 
 **Global Keyboard Shortcuts not working**
-- Global keyboard shortcuts require ([Autohotkey v2](https://www.autohotkey.com/v2/) to be installed and `bandcamp_player_hotkeys.ahk` script to be running. 
+- Global keyboard shortcuts require ([Autohotkey v2](https://www.autohotkey.com/v2/) to be installed and the included `bandcamp_player_hotkeys.ahk` script to be running. 
 - Try restarting the application
 
 ## Credits & Inspiration
@@ -147,6 +155,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
