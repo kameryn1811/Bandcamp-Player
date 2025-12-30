@@ -6,7 +6,7 @@
 
 </div>
 
-A compact and convenient Python-based mini player for streaming music directly from Bandcamp. Perfect for previewing albums and discovering new music you want to support.
+A compact, Python-based mini player for streaming music directly from Bandcamp. Designed for previewing albums and discovering new music you want to support. This player isn’t meant to replace traditional music software (Winamp, MusicBee, VLC, etc.), but to complement it by making album previews quick and convenient before purchasing, especially when you have a lot of albums to preview.  
 
 ## Key Features
 
@@ -141,6 +141,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
