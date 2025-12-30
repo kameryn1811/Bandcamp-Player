@@ -10,7 +10,7 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 
 ## Key Features
 
-* **Executable** - Available in .exe format, simply download and run.
+* **Executable** - Available in .exe format, simply download and run (compatible with Windows 10 and 11).
 * **Automatic Updates** - Select automatic updates or check now to be notified when there is a new update and accept to install it automatically.
 * **Compact Interface** - Minimal design that stays out of your way and 4 modes to suit your style: Regular, Mini, Micro, and/or Nano.
 * **Playlist Management** - Easily create and manage playlists of your favorite Bandcamp albums.
@@ -141,6 +141,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
