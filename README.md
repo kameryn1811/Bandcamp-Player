@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="images/icon-title.png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition) - Coming Soon
+# <img src="images/icon-title.png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition)
 
 [![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v1.0.0)
 
@@ -16,7 +16,7 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 * **Playlist Management** - Easily create and manage playlists of your favorite Bandcamp albums.
 * **Adjustable Playlist** - Minimize, expand, resize or detach the playlist for flexible window management.
 * **Always on Top** - Keep the player visible while working in other applications.
-* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more. Global keyboard shorcuts available with included autohotkey script (Autohotkey v2 required)
+* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more (customizable in the settings menu). Global keyboard shortcuts available with included `bandcamp_player_hotkeys.ahk` script ([Autohotkey v2 installation](https://www.autohotkey.com/v2/) required)
 * **Autoplay** - Automatically starting playing on startup and when switching albums. 
 * **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
 * **Volume Control** - Adjustable volume with visual feedback.
@@ -87,6 +87,10 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 ## Troubleshooting
 
+**Please Note**
+- Documentation is still improving
+- There will be dragons/bugs, feel free to report any issues, this should be a stable release but there are some bugs. To resolve them you can try: loading another url, restarting the app, and if you're stuck rename or delete settings.json and/or Playlists folder to do a factory reset.
+
 **Windows SmartScreen Warning**
 - When you open BandcampPlayer.exe for the first time, Windows might say: "Windows protected your PC"
 - This happens because the app isn't code-signed (certificates are pricey, and this is a free open-source project).
@@ -107,18 +111,20 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 - Launch the app!
 - Thanks to @alabx for this [fix](https://github.com/kameryn1811/Bandcamp-Downloader/issues/6)! 
 
-**"Player not responding"**
+**"Player not responding or sluggish"**
 - Check your internet connection
 - Verify the Bandcamp URL is valid and accessible
 - Try refreshing the page
+- VPNs, proxies, or ISP “secure connection” features can block or slow the CDN requests used to fetch artwork and metadata. Try turning these off or switching to a faster VPN location.
+- Antivirus software with HTTPS/SSL scanning (Kaspersky, ESET, Dr.Web, etc.) may interfere with image requests — temporarily disable these features to test.If it helps, whitelist BandcampDownloader.exe and bandcamp.com.
+- Bad DNS routing can also cause slow or missing images. Switching to 1.1.1.1, 8.8.8.8, or 9.9.9.9 may help.
 
 **"Playlist not saving"**
 - Check that the Playlists folder exists in the app directory
 - Verify write permissions for the app directory
 
-**Media keys not working**
-- Media key support requires Windows
-- Ensure no other application is capturing media keys
+**Global Keyboard Shortcuts not working**
+- Global keyboard shortcuts require ([Autohotkey v2](https://www.autohotkey.com/v2/) to be installed and `bandcamp_player_hotkeys.ahk` script to be running. 
 - Try restarting the application
 
 ## Credits & Inspiration
@@ -141,6 +147,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
