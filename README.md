@@ -2,7 +2,7 @@
 
 # <img src="images/icon-title.png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition) - Coming Soon
 
-[![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/)
+[![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v1.0.0)
 
 </div>
 
@@ -16,7 +16,7 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 * **Playlist Management** - Easily create and manage playlists of your favorite Bandcamp albums.
 * **Adjustable Playlist** - Minimize, expand, resize or detach the playlist for flexible window management.
 * **Always on Top** - Keep the player visible while working in other applications.
-* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more.
+* **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more. Global keyboard shorcuts available with included autohotkey script (Autohotkey v2 required)
 * **Autoplay** - Automatically starting playing on startup and when switching albums. 
 * **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
 * **Volume Control** - Adjustable volume with visual feedback.
@@ -141,6 +141,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
