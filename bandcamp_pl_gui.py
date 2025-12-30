@@ -5,7 +5,7 @@ Proof of concept using PyQt6 with QWebEngineView
 """
 
 # Application version (update this when releasing)
-__version__ = "1.0.1"
+__version__ = "1.0.0"
 
 import sys
 import os
@@ -13,6 +13,8 @@ import subprocess
 import json
 import random
 import logging
+import time
+import webbrowser
 from pathlib import Path
 import urllib.request
 import urllib.error
@@ -81,16 +83,24 @@ try:
     )
     file_handler.setFormatter(file_formatter)
     
-    # Set up console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(console_formatter)
+    # Set up console handler (only if not in launcher mode or if console is available)
+    # In launcher mode, console is freed, so stdout/stderr may be None
+    launcher_mode = os.environ.get('BANDCAMP_PLAYER_LAUNCHER') == '1'
+    if not launcher_mode and sys.stdout and sys.stderr:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(log_level)
+        console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
+        console_handler.setFormatter(console_formatter)
+        console_handler.stream = sys.stdout  # Explicitly set to stdout
+    else:
+        # In launcher mode or if stdout/stderr are None, skip console handler
+        console_handler = None
     
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    root_logger.addHandler(console_handler)
+    if console_handler:
+        root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
     
     logger = logging.getLogger(__name__)
@@ -99,10 +109,17 @@ except Exception as e:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
-        logger.addHandler(handler)
-    print(f"Warning: Could not set up file logging: {e}", file=sys.stderr)
+        # Only add console handler if stdout/stderr are available
+        if sys.stdout and sys.stderr:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+            logger.addHandler(handler)
+    # Only print to stderr if it's available (not None after FreeConsole)
+    if sys.stderr:
+        try:
+            print(f"Warning: Could not set up file logging: {e}", file=sys.stderr)
+        except (AttributeError, OSError):
+            pass  # stderr is None or not writable
 
 # PyQt6 imports
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -316,13 +333,14 @@ class CSSInjector:
         self._bandcamp_css = None
         self._mini_mode_css = None
     
-    def get_css(self, compact=False, bandcamp_mode=False, mini_mode_state=0):
+    def get_css(self, compact=False, bandcamp_mode=False, mini_mode_state=0, webview_scrollbar_visible=False):
         """Get combined CSS based on modes (lazy-loaded)
         
         Args:
             compact: Enable compact mode
             bandcamp_mode: Enable bandcamp mode
             mini_mode_state: 0 = Regular, 1 = Mini (cover art), 2 = Micro (player only)
+            webview_scrollbar_visible: Show minimalist scrollbar in webview
         """
         # Lazy load CSS only when needed
         if self._base_css is None:
@@ -349,6 +367,12 @@ class CSSInjector:
         elif mini_mode_state == 2:
             # Micro mode: show only player
             css_parts.append(self._mini_mode_css)
+        
+        # Add scrollbar CSS based on setting
+        if webview_scrollbar_visible:
+            css_parts.append(self._get_scrollbar_css())
+        else:
+            css_parts.append(self._get_hidden_scrollbar_css())
         
         return "\n\n".join(css_parts)
     
@@ -1210,32 +1234,12 @@ input, textarea, select {
         return """
 /* Bandcamp Mode - Hide unwanted elements, show only essential player content */
 
-/* Hide scrollbars but keep scrolling functionality */
-::-webkit-scrollbar {
-    width: 0px !important;
-    height: 0px !important;
-    background: transparent !important;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background: transparent !important;
-}
-
-/* Hide scrollbars for Firefox */
-* {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-}
-
-/* Ensure scrolling still works */
+/* Ensure scrolling still works with smooth behavior */
 html, body {
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS/WebKit */
+    scroll-behavior: smooth !important; /* Smooth scrolling for programmatic scrolling */
 }
 
 /* Hide the annoying sticky player overlay in all modes */
@@ -1608,6 +1612,212 @@ body.bandcamp-minimized #about-tralbum {
 
 body.bandcamp-minimized #player {
     visibility: visible !important;
+}
+"""
+    
+    def _get_hidden_scrollbar_css(self):
+        """CSS to hide scrollbars completely"""
+        return """
+/* Hide scrollbars but keep scrolling functionality */
+::-webkit-scrollbar {
+    width: 0px !important;
+    height: 0px !important;
+    background: transparent !important;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+/* Hide scrollbars for Firefox */
+* {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+"""
+    
+    def _get_scrollbar_css(self):
+        """CSS for minimalist, unobtrusive scrollbar (similar to playlist style)"""
+        return """
+/* Minimalist scrollbar - thin, unobtrusive, similar to playlist style */
+/* Style both vertical and horizontal scrollbars to match */
+/* Base rule - applies to all scrollbars - MUST come first */
+::-webkit-scrollbar,
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#pgBd::-webkit-scrollbar,
+.p-tralbum-page-container::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important; /* Match vertical scrollbar thickness - CRITICAL for horizontal */
+    background: transparent !important;
+}
+
+/* Vertical scrollbar track */
+::-webkit-scrollbar:vertical {
+    width: 10px !important;
+    background: transparent !important;
+}
+
+/* Horizontal scrollbar track - match vertical thickness */
+/* Use more specific selectors to ensure it applies everywhere */
+::-webkit-scrollbar:horizontal,
+*::-webkit-scrollbar:horizontal,
+html::-webkit-scrollbar:horizontal,
+body::-webkit-scrollbar:horizontal {
+    height: 10px !important; /* Match vertical scrollbar width (10px) */
+    background: transparent !important;
+    width: auto !important;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent !important;
+    border-radius: 5px !important;
+}
+
+/* Ensure horizontal scrollbar track matches vertical - dark grey background */
+::-webkit-scrollbar-track:horizontal,
+*::-webkit-scrollbar-track:horizontal,
+html::-webkit-scrollbar-track:horizontal,
+body::-webkit-scrollbar-track:horizontal,
+#tralbum-art-carousel::-webkit-scrollbar-track:horizontal,
+.tralbum-art-carousel-container::-webkit-scrollbar-track:horizontal,
+#tralbum-art-carousel *::-webkit-scrollbar-track:horizontal,
+.tralbum-art-carousel-container *::-webkit-scrollbar-track:horizontal {
+    background: rgba(43, 43, 43, 0.8) !important; /* Dark grey background to match vertical */
+    border-radius: 5px !important;
+    height: 10px !important;
+}
+
+/* Vertical scrollbar thumb */
+::-webkit-scrollbar-thumb:vertical {
+    background-color: rgba(74, 74, 74, 0.5) !important;
+    border-radius: 5px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
+    min-height: 20px !important;
+    transition: background-color 0.15s ease !important; /* Faster transition for responsiveness */
+    /* Hardware acceleration for smooth scrolling */
+    will-change: background-color, transform !important;
+    transform: translateZ(0) !important;
+    /* Ensure smooth scrolling performance */
+    -webkit-font-smoothing: antialiased !important;
+    backface-visibility: hidden !important;
+}
+
+/* Horizontal scrollbar thumb - match vertical styling */
+::-webkit-scrollbar-thumb:horizontal {
+    background-color: rgba(74, 74, 74, 0.5) !important;
+    border-radius: 5px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
+    min-width: 20px !important; /* Use min-width for horizontal */
+    transition: background-color 0.15s ease !important;
+    /* Hardware acceleration for smooth scrolling */
+    will-change: background-color, transform !important;
+    transform: translateZ(0) !important;
+    -webkit-font-smoothing: antialiased !important;
+    backface-visibility: hidden !important;
+}
+
+/* Fallback for any scrollbar thumb (for compatibility) */
+::-webkit-scrollbar-thumb {
+    background-color: rgba(74, 74, 74, 0.5) !important;
+    border-radius: 5px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
+    transition: background-color 0.15s ease !important;
+    will-change: background-color, transform !important;
+    transform: translateZ(0) !important;
+    -webkit-font-smoothing: antialiased !important;
+    backface-visibility: hidden !important;
+}
+
+/* Hover states for both vertical and horizontal */
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:vertical:hover,
+::-webkit-scrollbar-thumb:horizontal:hover {
+    background-color: rgba(90, 90, 90, 0.7) !important;
+}
+
+/* Active states for both vertical and horizontal */
+::-webkit-scrollbar-thumb:active,
+::-webkit-scrollbar-thumb:vertical:active,
+::-webkit-scrollbar-thumb:horizontal:active {
+    background-color: rgba(106, 106, 106, 0.9) !important;
+}
+
+/* Ensure smooth scrolling behavior */
+html, body {
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS/WebKit */
+    overflow-x: hidden !important; /* Hide horizontal scrolling */
+    overflow-y: auto !important; /* Allow vertical scrolling */
+}
+
+/* Firefox scrollbar styling - dark grey background to match vertical scrollbar */
+* {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(74, 74, 74, 0.5) #212121 !important; /* Dark grey background instead of transparent */
+}
+
+/* Hide horizontal scrolling on main containers, but allow carousels to work */
+body, html, #pgBd, .p-tralbum-page-container, .leftColumn, .rightColumn {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* IMPORTANT: Don't force overflow-x: hidden on carousel containers */
+/* Carousels use CSS transforms/positioning to show only the active image */
+/* Forcing overflow-x: hidden breaks the carousel's display mechanism */
+/* Let Bandcamp's own carousel CSS handle the overflow properly */
+#tralbum-art-carousel,
+.tralbum-art-carousel-container {
+    /* Don't override carousel's overflow - let it handle its own display */
+    /* Just ensure it doesn't exceed container width */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Force ALL horizontal scrollbars to match vertical scrollbar thickness */
+/* Target carousel and all other elements aggressively */
+#tralbum-art-carousel::-webkit-scrollbar:horizontal,
+.tralbum-art-carousel-container::-webkit-scrollbar:horizontal,
+#tralbum-art-carousel *::-webkit-scrollbar:horizontal,
+.tralbum-art-carousel-container *::-webkit-scrollbar:horizontal,
+.carousel::-webkit-scrollbar:horizontal,
+.carousel *::-webkit-scrollbar:horizontal,
+[class*="carousel"]::-webkit-scrollbar:horizontal,
+[class*="carousel"] *::-webkit-scrollbar:horizontal {
+    height: 10px !important; /* Match vertical scrollbar width (10px) */
+    max-height: 10px !important; /* Force maximum height */
+    min-height: 10px !important; /* Force minimum height */
+    background: transparent !important;
+    width: auto !important;
+}
+
+/* Ensure ALL horizontal scrollbar thumbs match vertical styling */
+#tralbum-art-carousel::-webkit-scrollbar-thumb:horizontal,
+.tralbum-art-carousel-container::-webkit-scrollbar-thumb:horizontal,
+#tralbum-art-carousel *::-webkit-scrollbar-thumb:horizontal,
+.tralbum-art-carousel-container *::-webkit-scrollbar-thumb:horizontal,
+.carousel::-webkit-scrollbar-thumb:horizontal,
+.carousel *::-webkit-scrollbar-thumb:horizontal,
+[class*="carousel"]::-webkit-scrollbar-thumb:horizontal,
+[class*="carousel"] *::-webkit-scrollbar-thumb:horizontal {
+    background-color: rgba(74, 74, 74, 0.5) !important;
+    border-radius: 5px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
+    min-width: 20px !important;
+    height: 10px !important; /* Match scrollbar track height */
+    max-height: 10px !important;
+    transition: background-color 0.15s ease !important;
 }
 """
     
@@ -2066,6 +2276,10 @@ body.mini-mode.mini-mode-autohide #player {
     /* Must keep pointer-events enabled for hover to work */
     pointer-events: auto !important;
     visibility: visible !important;
+    /* Hardware acceleration for smooth transitions */
+    will-change: opacity !important;
+    transform: translateZ(0) !important;
+    backface-visibility: hidden !important;
 }
 
 /* Override general mini-mode opacity rules for child elements when autohide is enabled */
@@ -2105,6 +2319,8 @@ body.mini-mode.mini-mode-autohide #player * {
 /* Show player when hovering - use class-based approach for reliable hover detection */
 body.mini-mode.mini-mode-autohide #player.player-hovered {
     opacity: 1 !important;
+    /* Ensure smooth transition when showing */
+    will-change: opacity !important;
 }
 
 /* Player visibility toggle button - top center in mini mode */
@@ -3634,10 +3850,10 @@ class PlaylistSidebar(QWidget):
             old_repeat = parent.settings.get('repeat_on', False)
             old_shuffle = parent.settings.get('shuffle_on', False)
             # Migrate: True -> 1, False -> 0
-            self.repeat_mode = parent.settings.get('repeat_mode', 1 if old_repeat else 0)
+            self.repeat_mode = parent.settings.get('repeat_mode', 1 if old_repeat else 1)  # Default to mode 1 (continuous)
             self.shuffle_mode = parent.settings.get('shuffle_mode', 1 if old_shuffle else 0)
         else:
-            self.repeat_mode = 0  # 0=off, 1=continuous, 2=album, 3=track
+            self.repeat_mode = 1  # 0=off, 1=continuous, 2=album, 3=track (default to continuous)
             self.shuffle_mode = 0  # 0=off, 1=tracks, 2=albums, 3=super
         
         # Shuffle Tracks mode: shuffled track list for current album
@@ -4112,6 +4328,11 @@ class PlaylistSidebar(QWidget):
     
     def load_playlist(self):
         """Load playlist URLs into the list widget and refresh all items"""
+        # Ensure playlist manager is initialized (safety check for deferred init)
+        if hasattr(self, 'parent_window') and self.parent_window:
+            if hasattr(self.parent_window, '_ensure_playlist_manager'):
+                self.parent_window._ensure_playlist_manager()
+        
         # Store current item URL before clearing (to restore highlighting)
         current_url = None
         if self.current_item:
@@ -4121,7 +4342,7 @@ class PlaylistSidebar(QWidget):
         self.current_item = None  # Clear reference since items are cleared
         self._blank_item = None  # Clear blank item reference since items are cleared
         
-        # Get playlist with metadata
+        # Get playlist with metadata (playlist_manager is accessed via parent_window)
         playlist_with_metadata = self.playlist_manager.get_playlist_with_metadata()
         for item in playlist_with_metadata:
             url = item.get("url") if isinstance(item, dict) else item
@@ -5160,6 +5381,7 @@ class PlaylistSidebar(QWidget):
         if parent_window:
             if hasattr(parent_window, 'playlist_btn'):
                 parent_window.playlist_btn.setChecked(False)
+                parent_window._update_playlist_button_icon(False)
             if hasattr(parent_window, 'show_playlist_action'):
                 parent_window.show_playlist_action.setChecked(False)
             
@@ -5231,7 +5453,7 @@ class PlaylistSidebar(QWidget):
                                 
                                 # Set flag to allow programmatic resize
                                 parent_window._micro_mode_resizing = True
-                                original_width = parent_window.mini_mode_original_size.width() if parent_window.mini_mode_original_size else 260
+                                original_width = WINDOW_DEFAULT_WIDTH
                                 
                                 # Ensure we don't go below minimum
                                 if new_total_height < window_padding + 50:
@@ -7567,6 +7789,7 @@ class KeyboardShortcutsDialog(QDialog):
     
     # Default shortcuts
     DEFAULT_SHORTCUTS = {
+        "play_pause": "Ctrl+Alt+Space",
         "next_track": "Ctrl+Alt+Right",
         "previous_track": "Ctrl+Alt+Left",
         "next_album": "Ctrl+Shift+Alt+Right",
@@ -7633,6 +7856,7 @@ class KeyboardShortcutsDialog(QDialog):
         
         # Define shortcuts with labels
         shortcuts_def = [
+            ("play_pause", "Play/Pause"),
             ("next_track", "Next Track"),
             ("previous_track", "Previous Track"),
             ("next_album", "Next Album"),
@@ -8077,10 +8301,11 @@ class PlayerWindow(QMainWindow):
         self.always_on_top = self.settings.get("always_on_top", True)
         self.frameless_mode = self.settings.get("frameless_mode", True)  # Default to enabled
         self.autoplay = self.settings.get("autoplay", True)  # Default to enabled
-        self.autoplay_on_startup = self.settings.get("autoplay_on_startup", False)  # Default to disabled
+        self.autoplay_on_startup = self.settings.get("autoplay_on_startup", True)  # Default to enabled
         self.transparent_overlay = self.settings.get("transparent_overlay", False)  # Default to opaque
         self.autohide_address_bar = self.settings.get("autohide_address_bar", True)  # Default to enabled
         self.mini_mode_player_autohide = self.settings.get("mini_mode_player_autohide", False)  # Default to disabled
+        self.webview_scrollbar_visible = self.settings.get("webview_scrollbar_visible", False)  # Default to hidden
         self.nano_mode_on_minimize = self.settings.get("nano_mode_on_minimize", True)  # Default to enabled
         # Remove "fully hidden" mode: migrate any old hidden state to autohide
         legacy_hidden = self.settings.get("mini_mode_player_hidden", False)
@@ -8216,38 +8441,9 @@ class PlayerWindow(QMainWindow):
                     # No saved height, start with default (will resize when page loads)
                     self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
         
-        # Load original size from settings if available (for mini/micro mode)
-        # This is the size to restore when switching back to regular mode
-        original_size = self.settings.get("mini_mode_original_size")
-        if original_size and isinstance(original_size, dict):
-            loaded_height = original_size.get("height", WINDOW_DEFAULT_HEIGHT)
-            loaded_width = original_size.get("width", WINDOW_DEFAULT_WIDTH)
-            # Check if loaded size is unreasonably small (likely micro mode size)
-            # Micro mode is typically < 200px height, regular mode should be >= 640px
-            if loaded_height < 300:
-                # Likely micro mode size - use default regular mode size instead
-                logger.debug(f"Loaded original size from settings appears to be micro mode size ({loaded_height}px), using default regular mode size")
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                # Update settings with correct default size
-                self.settings["mini_mode_original_size"] = {
-                    "width": WINDOW_DEFAULT_WIDTH,
-                    "height": WINDOW_DEFAULT_HEIGHT
-                }
-            else:
-                self.mini_mode_original_size = QSize(loaded_width, loaded_height)
-        else:
-            # No original size saved - if starting in mini/micro mode, we need to set a default
-            # This ensures we can restore to regular mode properly
-            if self.mini_mode_state != 0:
-                # Starting in mini/micro mode - set default regular mode size as original
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                self.settings["mini_mode_original_size"] = {
-                    "width": WINDOW_DEFAULT_WIDTH,
-                    "height": WINDOW_DEFAULT_HEIGHT
-                }
-                logger.debug(f"Starting in mode {self.mini_mode_state} - setting default regular mode size as original")
-            else:
-                self.mini_mode_original_size = None
+        # No longer storing/loading original size - each mode uses fixed defaults
+        # Regular mode: always WINDOW_DEFAULT_WIDTH x WINDOW_DEFAULT_HEIGHT
+        # Mini/Micro modes: always WINDOW_DEFAULT_WIDTH, height calculated dynamically
         
         # Load saved mini mode height from settings
         saved_mini_height = self.settings.get("mini_mode_saved_height")
@@ -8268,29 +8464,35 @@ class PlayerWindow(QMainWindow):
         self._was_micro_mode = False  # Track if we were in micro mode (for proper restoration)
         self._original_context_menu_policy = None  # Store original context menu policy to restore after loading
         
-        # Components
-        # Load current playlist file from settings, fallback to default
-        current_playlist_file = self.settings.get("current_playlist_file")
-        if current_playlist_file:
+        # Components - defer heavy initialization for faster startup
+        # Store playlist file path but don't load yet (defer to deferred_init)
+        self._current_playlist_file = self.settings.get("current_playlist_file")
+        if self._current_playlist_file:
             # Verify the file exists, otherwise fallback to default
-            playlist_path = Path(current_playlist_file)
+            playlist_path = Path(self._current_playlist_file)
             if not playlist_path.is_absolute():
                 playlist_path = Path(__file__).parent / "Playlists" / playlist_path.name
             if not playlist_path.exists():
                 logger.info(f"Saved playlist file {playlist_path} not found, using default")
-                current_playlist_file = None
+                self._current_playlist_file = None
         
-        self.playlist_manager = PlaylistManager(playlist_file=current_playlist_file)
+        # Create playlist manager but defer loading (faster startup)
+        # Will be created in deferred_init, but create a minimal instance if needed early
+        self.playlist_manager = None  # Will be created in deferred_init
+        self._playlist_manager_initialized = False
         self.css_injector = CSSInjector()
         
         # Setup UI (minimal - defer heavy components)
         self.setup_ui()
         self.setup_web_view()
-        self.setup_menu()
+        # Defer menu setup until after window shows (faster startup)
+        self._menu_setup_deferred = True
         # Defer system tray setup until after window shows (faster startup)
         self.tray_icon = None
-        self.setup_shortcuts()
-        self.apply_settings()
+        # Defer shortcuts setup (faster startup)
+        self._shortcuts_setup_deferred = True
+        # Defer settings application (faster startup)
+        self._settings_applied = False
         
         # Enable drag and drop on the entire window
         self.setAcceptDrops(True)
@@ -8304,43 +8506,80 @@ class PlayerWindow(QMainWindow):
         self._initial_url_pending = None
         self._is_startup_load = False  # Flag to track if this is the initial startup URL load
         self._has_url_loaded = False  # Flag to track if any URL has been loaded
-        # Try to load last played URL from settings, otherwise use first in playlist
-        last_played_url = self.settings.get("last_played_url")
-        playlist = self.playlist_manager.get_playlist()
-        
-        if last_played_url:
-            # Verify last played URL is still in playlist (or allow it anyway for flexibility)
-            if last_played_url in playlist or not playlist:
-                self._initial_url_pending = last_played_url
-            elif playlist:
-                # Last played URL not in playlist, use first item instead
-                self._initial_url_pending = playlist[0]
-        elif playlist:
-            # No last played URL, use first in playlist
-            self._initial_url_pending = playlist[0]
+        self._update_check_done = False  # Flag to track if update check has been performed
+        # Store last played URL for deferred loading
+        self._last_played_url = self.settings.get("last_played_url")
     
     def _minimize_console_immediately(self):
-        """Minimize console window immediately at startup (like downloader does)."""
+        """Hide console window immediately at startup (like downloader does)."""
         try:
-            if sys.platform == 'win32' and os.environ.get('BANDCAMP_PLAYER_LAUNCHER') != '1':
+            if sys.platform == 'win32':
                 import ctypes
                 kernel32 = ctypes.windll.kernel32
                 user32 = ctypes.windll.user32
                 hwnd = kernel32.GetConsoleWindow()
                 if hwnd:
-                    # SW_MINIMIZE = 6 - minimizes to taskbar (like downloader)
-                    # This is safer than SW_HIDE on Windows 10
-                    user32.ShowWindow(hwnd, 6)
+                    launcher_mode = os.environ.get('BANDCAMP_PLAYER_LAUNCHER') == '1'
+                    if launcher_mode:
+                        # In launcher mode, try to free console (may already be freed by launcher)
+                        # If it fails, try minimizing as fallback
+                        try:
+                            kernel32.FreeConsole()
+                        except Exception:
+                            # If FreeConsole fails, minimize as fallback
+                            user32.ShowWindow(hwnd, 6)  # SW_MINIMIZE = 6
+                    else:
+                        # Not in launcher mode, just minimize (safer for development)
+                        # SW_MINIMIZE = 6 - minimizes to taskbar
+                        user32.ShowWindow(hwnd, 6)
         except Exception:
             pass  # Silently fail if console hiding doesn't work
     
+    def _ensure_playlist_manager(self):
+        """Ensure playlist manager is initialized (lazy initialization)."""
+        if not self._playlist_manager_initialized:
+            if self.playlist_manager is None:
+                self.playlist_manager = PlaylistManager(playlist_file=self._current_playlist_file)
+            self._playlist_manager_initialized = True
+    
     def deferred_init(self):
         """Deferred initialization - runs after window is shown for faster startup"""
+        # Create playlist manager now (deferred from __init__ for faster startup)
+        self._ensure_playlist_manager()
+        
+        # Setup menu now (deferred from __init__ for faster startup)
+        if getattr(self, '_menu_setup_deferred', False):
+            self.setup_menu()
+            self._menu_setup_deferred = False
+        
+        # Setup shortcuts now (deferred from __init__ for faster startup)
+        if getattr(self, '_shortcuts_setup_deferred', False):
+            self.setup_shortcuts()
+            self._shortcuts_setup_deferred = False
+        
+        # Apply settings now (deferred from __init__ for faster startup)
+        if not getattr(self, '_settings_applied', False):
+            self.apply_settings()
+            self._settings_applied = True
+        
         # If in mini/micro mode, apply CSS immediately (before window is shown)
         # This ensures the correct styling is applied from the start
+        # However, on first launch, skip CSS injection here if no page is loaded yet
+        # The CSS will be injected in on_page_loaded() after the page is ready
         if self.mini_mode_state != 0 and self.web_view:
-            # Inject CSS immediately so styling is correct when window appears
-            self.inject_css()
+            # Check if a page is already loaded (has a URL)
+            # On first launch, no page is loaded yet, so skip injection here
+            page_has_url = False
+            if self.web_view.page():
+                url = self.web_view.url()
+                if url and url.toString() and url.toString() != 'about:blank':
+                    page_has_url = True
+            
+            # Only inject CSS if a page is already loaded
+            # On first launch, the page will be loaded later, and CSS will be injected in on_page_loaded()
+            if page_has_url:
+                # Inject CSS immediately so styling is correct when window appears
+                self.inject_css()
             # Apply mini/micro mode settings (this will set up min/max sizes correctly)
             # Note: This is safe to call even on startup - it will handle the mode correctly
             self.apply_mini_mode()
@@ -8364,8 +8603,23 @@ class PlayerWindow(QMainWindow):
         if self.tray_icon is None:
             self.setup_tray()
         
+        # Load initial URL from playlist (deferred from __init__ for faster startup)
+        if self._initial_url_pending is None:
+            # Try to load last played URL from settings, otherwise use first in playlist
+            playlist = self.playlist_manager.get_playlist()
+            if self._last_played_url:
+                # Verify last played URL is still in playlist (or allow it anyway for flexibility)
+                if self._last_played_url in playlist or not playlist:
+                    self._initial_url_pending = self._last_played_url
+                elif playlist:
+                    # Last played URL not in playlist, use first item instead
+                    self._initial_url_pending = playlist[0]
+            elif playlist:
+                # No last played URL, use first in playlist
+                self._initial_url_pending = playlist[0]
+        
         # Restore playlist state from settings
-        playlist_visible = self.settings.get("playlist_visible", False)
+        playlist_visible = self.settings.get("playlist_visible", True)  # Default to visible
         
         # Restore detached state if it was detached
         playlist_detached = self.settings.get("playlist_detached", False)
@@ -8458,11 +8712,7 @@ class PlayerWindow(QMainWindow):
         except Exception:
             pass
         
-        # Check for updates in background after UI is ready (non-blocking) - only if auto-check is enabled
-        auto_check_enabled = self.settings.get("auto_check_updates", True)
-        if auto_check_enabled:
-            # Delay update check to not affect startup performance
-            QTimer.singleShot(2000, self._check_for_updates_background)
+        # Update check will be performed after first URL loads (in on_page_loaded)
     
     def _restore_playlist_state(self):
         """Restore playlist state from settings (called after playlist is created)"""
@@ -8475,9 +8725,9 @@ class PlayerWindow(QMainWindow):
             # Skip restoration - playlist will be moved to detached window
             return
         
-        playlist_visible = self.settings.get("playlist_visible", False)
+        playlist_visible = self.settings.get("playlist_visible", True)  # Default to visible
         # Prefer attached-specific minimized state if present (so detaching/reattaching doesn't lose it)
-        playlist_minimized = self.settings.get("playlist_attached_minimized", self.settings.get("playlist_minimized", False))
+        playlist_minimized = self.settings.get("playlist_attached_minimized", self.settings.get("playlist_minimized", True))  # Default to minimized
         # Use attached height if available, otherwise use regular playlist_height
         playlist_height = self.settings.get('playlist_attached_height')
         if not playlist_height:
@@ -8513,6 +8763,7 @@ class PlayerWindow(QMainWindow):
                 handle.setFixedHeight(0)
         if hasattr(self, 'playlist_btn'):
             self.playlist_btn.setChecked(playlist_visible)
+            self._update_playlist_button_icon(playlist_visible)
         if hasattr(self, 'show_playlist_action'):
             self.show_playlist_action.setChecked(playlist_visible)
         
@@ -8548,6 +8799,24 @@ class PlayerWindow(QMainWindow):
                     else:
                         self.playlist_sidebar.minimize_btn.setText("−")
                     self.playlist_sidebar.minimize_btn.setToolTip("Minimize playlist")
+        
+        # If we're in micro mode and playlist was just restored, ensure it's minimized and trigger resize
+        # This handles the first launch case where playlist is created after apply_mini_mode is called
+        if hasattr(self, 'mini_mode_state') and self.mini_mode_state == 2:
+            if self.playlist_sidebar.isVisible() and not self.playlist_sidebar.is_minimized and not self.playlist_detached:
+                # Playlist is visible but not minimized - minimize it for micro mode
+                self.playlist_sidebar._toggle_minimize_state()
+            # Force geometry update and trigger resize to ensure window accommodates minimized playlist
+            self.playlist_sidebar.updateGeometry()
+            if hasattr(self, 'playlist_container') and self.playlist_container:
+                self.playlist_container.updateGeometry()
+            layout = self.centralWidget().layout()
+            if layout:
+                layout.update()
+                layout.activate()
+            QApplication.processEvents()
+            # Trigger resize after a short delay to ensure geometry is updated
+            QTimer.singleShot(100, self.resize_to_micro_mode)
     
     def setup_ui(self):
         """Setup the main UI layout"""
@@ -8586,11 +8855,11 @@ class PlayerWindow(QMainWindow):
         # Add stretch to push buttons to the right
         controls_bar.addStretch()
         
-        # Always on Top button (Pin)
+        # Always on Top button (Pin) - ORDER: 1
         self.always_on_top_btn = QPushButton()
-        # Use qtawesome icon if available, fallback to emoji
+        icon_color = '#4a90e2' if self.always_on_top else '#a0a0a0'
         if HAS_QT_AWESOME:
-            icon = get_icon('thumbtack', color='#e0e0e0')
+            icon = get_icon('thumbtack', color=icon_color)
             if icon:
                 self.always_on_top_btn.setIcon(icon)
             else:
@@ -8604,7 +8873,7 @@ class PlayerWindow(QMainWindow):
         self.always_on_top_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #a0a0a0;
                 border: none;
                 font-size: 14px;
                 padding: 6px 8px;
@@ -8622,29 +8891,43 @@ class PlayerWindow(QMainWindow):
         self.always_on_top_btn.clicked.connect(self.toggle_always_on_top)
         controls_bar.addWidget(self.always_on_top_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
-        # Paste button
-        paste_btn = QPushButton()
-        set_icon_safe(paste_btn, 'paste', color='#e0e0e0', fallback_text="➕")
-        paste_btn.setMinimumWidth(30)
-        paste_btn.setMaximumWidth(30)
-        paste_btn.setToolTip("Paste URL From Clipboard")
-        paste_btn.setStyleSheet("""
+        # Autohide Top Nav button - ORDER: 2
+        self.autohide_nav_btn = QPushButton()
+        icon_color = '#4a90e2' if self.autohide_address_bar else '#a0a0a0'
+        if HAS_QT_AWESOME:
+            icon = get_icon('fa6s.eye', color=icon_color)
+            if icon:
+                self.autohide_nav_btn.setIcon(icon)
+            else:
+                self.autohide_nav_btn.setText("👁")
+        else:
+            self.autohide_nav_btn.setText("👁")
+        self.autohide_nav_btn.setFixedSize(30, 30)
+        self.autohide_nav_btn.setToolTip("Autohide Top Nav")
+        self.autohide_nav_btn.setCheckable(True)
+        self.autohide_nav_btn.setChecked(self.autohide_address_bar)
+        self.autohide_nav_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #a0a0a0;
                 border: none;
-                font-size: 16px;
-                font-weight: bold;
+                font-size: 14px;
                 padding: 6px 8px;
             }
             QPushButton:hover {
                 background-color: #3a3a3a;
             }
+            QPushButton:checked {
+                color: #4a90e2;
+                background-color: #3a3a3a;
+                border: 1px solid #4a90e2;
+                border-radius: 3px;
+            }
         """)
-        paste_btn.clicked.connect(self.on_paste_url)
-        controls_bar.addWidget(paste_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.autohide_nav_btn.clicked.connect(self.toggle_autohide_address_bar)
+        controls_bar.addWidget(self.autohide_nav_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
-        # Volume button
+        # Volume button - ORDER: 3
         self.volume_btn = QPushButton()
         if HAS_QT_AWESOME:
             icon = get_icon('fa5s.volume-up', color='#e0e0e0')
@@ -8672,11 +8955,34 @@ class PlayerWindow(QMainWindow):
         self.volume_btn.clicked.connect(lambda: self.show_volume_control(auto_hide=True, delay_ms=1200))
         controls_bar.addWidget(self.volume_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
-        # Playlist button
+        # Paste button - ORDER: 4
+        paste_btn = QPushButton()
+        set_icon_safe(paste_btn, 'paste', color='#e0e0e0', fallback_text="➕")
+        paste_btn.setMinimumWidth(30)
+        paste_btn.setMaximumWidth(30)
+        paste_btn.setToolTip("Paste URL From Clipboard")
+        paste_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 6px 8px;
+            }
+            QPushButton:hover {
+                background-color: #3a3a3a;
+            }
+        """)
+        paste_btn.clicked.connect(self.on_paste_url)
+        controls_bar.addWidget(paste_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        # Playlist button - ORDER: 5
         self.playlist_btn = QPushButton()
+        icon_color = '#a0a0a0'  # Default to light color (playlist hidden by default)
         if HAS_QT_AWESOME:
             # Use the original icon for the top nav (looks better at 30x30)
-            icon = get_icon('mdi6.list-box', color='#e0e0e0')
+            icon = get_icon('mdi6.list-box', color=icon_color)
             if icon:
                 self.playlist_btn.setIcon(icon)
             else:
@@ -8690,7 +8996,7 @@ class PlayerWindow(QMainWindow):
         self.playlist_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #a0a0a0;
                 border: none;
                 font-size: 14px;
                 padding: 6px 8px;
@@ -9192,7 +9498,15 @@ class PlayerWindow(QMainWindow):
     def toggle_autohide_address_bar(self):
         """Toggle autohide address bar"""
         self.autohide_address_bar = not self.autohide_address_bar
-        self.autohide_address_bar_action.setChecked(self.autohide_address_bar)
+        # Update top nav button state and icon color
+        if hasattr(self, 'autohide_nav_btn'):
+            self.autohide_nav_btn.setChecked(self.autohide_address_bar)
+            # Update icon color based on checked state (light when off, blue when on)
+            if HAS_QT_AWESOME:
+                icon_color = '#4a90e2' if self.autohide_address_bar else '#a0a0a0'
+                icon = get_icon('fa6s.eye', color=icon_color)
+                if icon:
+                    self.autohide_nav_btn.setIcon(icon)
         
         if self.autohide_address_bar:
             # Enable autohide - make address bar overlay
@@ -9670,6 +9984,7 @@ class PlayerWindow(QMainWindow):
             # Ensure first click works even when playlist is lazy-created and restore is pending.
             if hasattr(self, 'playlist_btn') and self.playlist_btn:
                 self.playlist_btn.setChecked(True)
+                self._update_playlist_button_icon(True)
             if hasattr(self, 'show_playlist_action') and self.show_playlist_action:
                 self.show_playlist_action.setChecked(True)
 
@@ -10178,6 +10493,11 @@ class PlayerWindow(QMainWindow):
         # Inject CSS when page loads
         self.web_view.page().loadFinished.connect(self.on_page_loaded)
         
+        # Initialize image viewer modal structure early (before any page loads)
+        # This ensures the modal is ready whenever a URL is loaded
+        # Use a small delay to ensure the page object is fully ready
+        QTimer.singleShot(100, self._initialize_image_viewer_modal_early)
+        
         # Poll for image viewer actions from JavaScript
         self._image_viewer_action_timer = QTimer()
         self._image_viewer_action_timer.timeout.connect(self._poll_image_viewer_actions)
@@ -10285,13 +10605,6 @@ class PlayerWindow(QMainWindow):
         
         self.menu.addSeparator()
         
-        # Always on top
-        self.always_on_top_action = QAction("Always on Top", self)
-        self.always_on_top_action.setCheckable(True)
-        self.always_on_top_action.setChecked(self.always_on_top)
-        self.always_on_top_action.triggered.connect(self.toggle_always_on_top)
-        self.menu.addAction(self.always_on_top_action)
-        
         # Frameless window (hidden by default, shown when dev tools is open)
         self.frameless_action = QAction("Frameless Window", self)
         self.frameless_action.setCheckable(True)
@@ -10301,25 +10614,6 @@ class PlayerWindow(QMainWindow):
         self.frameless_action.setVisible(False)  # Hidden by default
         
         self.menu.addSeparator()
-        
-        # Playlist
-        self.show_playlist_action = QAction("Show Playlist", self)
-        self.show_playlist_action.setCheckable(True)
-        self.show_playlist_action.triggered.connect(self.toggle_playlist)
-        self.menu.addAction(self.show_playlist_action)
-        
-        # Mini Mode
-        self.mini_mode_action = QAction("Mini Mode", self)
-        self.mini_mode_action.triggered.connect(self.toggle_mini_mode)
-        self.menu.addAction(self.mini_mode_action)
-        self.update_mini_mode_menu_text()
-        
-        # Autohide Address Bar
-        self.autohide_address_bar_action = QAction("Autohide Top Nav", self)
-        self.autohide_address_bar_action.setCheckable(True)
-        self.autohide_address_bar_action.setChecked(self.autohide_address_bar)
-        self.autohide_address_bar_action.triggered.connect(self.toggle_autohide_address_bar)
-        self.menu.addAction(self.autohide_address_bar_action)
         
         # Mini Mode Player Autohide (only show when in mini mode)
         self.mini_mode_player_autohide_action = QAction("Mini Mode Player Autohide", self)
@@ -10344,6 +10638,13 @@ class PlayerWindow(QMainWindow):
         self.autoplay_on_startup_action.triggered.connect(self.toggle_autoplay_on_startup)
         self.menu.addAction(self.autoplay_on_startup_action)
         
+        # Webview Scrollbar
+        self.webview_scrollbar_action = QAction("Show Webview Scrollbar", self)
+        self.webview_scrollbar_action.setCheckable(True)
+        self.webview_scrollbar_action.setChecked(self.webview_scrollbar_visible)
+        self.webview_scrollbar_action.triggered.connect(self.toggle_webview_scrollbar)
+        self.menu.addAction(self.webview_scrollbar_action)
+        
         # Transparent Loading Overlay (hidden by default, shown when dev tools is open)
         self.transparent_overlay_action = QAction("Transparent Loading Overlay", self)
         self.transparent_overlay_action.setCheckable(True)
@@ -10354,12 +10655,27 @@ class PlayerWindow(QMainWindow):
         
         self.menu.addSeparator()
         
-        # Minimize
-        
         # Keyboard Shortcuts
         keyboard_shortcuts_action = QAction("Keyboard Shortcuts...", self)
         keyboard_shortcuts_action.triggered.connect(self.show_keyboard_shortcuts_dialog)
         self.menu.addAction(keyboard_shortcuts_action)
+        
+        self.menu.addSeparator()
+        
+        # About
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self._show_about_dialog)
+        self.menu.addAction(about_action)
+        
+        # GitHub Repository
+        github_action = QAction("GitHub Repository", self)
+        github_action.triggered.connect(lambda: webbrowser.open("https://github.com/kameryn1811/Bandcamp-Player"))
+        self.menu.addAction(github_action)
+        
+        # Report Issue
+        report_issue_action = QAction("Report Issue", self)
+        report_issue_action.triggered.connect(lambda: webbrowser.open("https://github.com/kameryn1811/Bandcamp-Player/issues"))
+        self.menu.addAction(report_issue_action)
         
         self.menu.addSeparator()
         
@@ -11259,6 +11575,7 @@ class PlayerWindow(QMainWindow):
         
         # Action mapping
         action_map = {
+            "play_pause": self._trigger_play_pause,
             "next_track": self._trigger_next_track,
             "previous_track": self._trigger_previous_track,
             "next_album": lambda: self.playlist_sidebar.load_next_album() if hasattr(self, 'playlist_sidebar') else None,
@@ -11392,8 +11709,7 @@ class PlayerWindow(QMainWindow):
                 elif command == "prev":
                     QTimer.singleShot(0, self._trigger_previous_track)
                 elif command == "playpause":
-                    # Could add play/pause callback here if needed
-                    pass
+                    QTimer.singleShot(0, self._trigger_play_pause)
                 elif command == "next_album":
                     QTimer.singleShot(0, lambda: self.playlist_sidebar.load_next_album() if hasattr(self, 'playlist_sidebar') and self.playlist_sidebar else None)
                 elif command == "prev_album":
@@ -11569,6 +11885,105 @@ class PlayerWindow(QMainWindow):
             }
             
             console.log('Bandcamp Player: Could not find previous track button or method');
+        })();
+        """
+        self.web_view.page().runJavaScript(js_code)
+    
+    def _trigger_play_pause(self):
+        """Trigger play/pause via JavaScript"""
+        logger.debug("_trigger_play_pause called")
+        if not self.web_view or not self.web_view.page():
+            logger.warning("_trigger_play_pause: web_view or page not available")
+            return
+        
+        js_code = """
+        (function() {
+            console.log('Bandcamp Player: Attempting to trigger play/pause...');
+            
+            // Try multiple methods to trigger play/pause
+            // Method 1: Click the play/pause button directly
+            var playPauseBtn = document.querySelector('button[aria-label="Play"], button[aria-label="Pause"], button[aria-label="Play song"], button[aria-label="Pause song"]');
+            if (playPauseBtn) {
+                var isDisabled = playPauseBtn.getAttribute('aria-disabled') === 'true';
+                console.log('Bandcamp Player: Found play/pause button, disabled:', isDisabled);
+                if (!isDisabled) {
+                    playPauseBtn.click();
+                    console.log('Bandcamp Player: Clicked play/pause button');
+                    return;
+                }
+            } else {
+                console.log('Bandcamp Player: Play/pause button not found with standard aria-label');
+            }
+            
+            // Method 2: Try alternative selectors for play/pause button
+            var altPlayPauseBtn = document.querySelector('.playbutton, .pausebutton, .play-btn, .pause-btn, button[title*="play"], button[title*="Play"], button[title*="pause"], button[title*="Pause"]');
+            if (altPlayPauseBtn) {
+                var isDisabled = altPlayPauseBtn.getAttribute('aria-disabled') === 'true';
+                console.log('Bandcamp Player: Found alternative play/pause button, disabled:', isDisabled);
+                if (!isDisabled) {
+                    altPlayPauseBtn.click();
+                    console.log('Bandcamp Player: Clicked alternative play/pause button');
+                    return;
+                }
+            }
+            
+            // Method 3: Try to access Knockout.js view model and call player.play() or player.pause()
+            try {
+                // Bandcamp uses Knockout.js - try to find the player view model
+                var playerElement = document.querySelector('#player');
+                if (playerElement) {
+                    // Try ko.contextFor
+                    if (typeof ko !== 'undefined' && ko.contextFor) {
+                        var context = ko.contextFor(playerElement);
+                        if (context && context.$data && context.$data.player) {
+                            // Check if playing and toggle
+                            if (context.$data.player.playing && typeof context.$data.player.pause === 'function') {
+                                context.$data.player.pause();
+                                console.log('Bandcamp Player: Called player.pause() via Knockout context');
+                                return;
+                            } else if (typeof context.$data.player.play === 'function') {
+                                context.$data.player.play();
+                                console.log('Bandcamp Player: Called player.play() via Knockout context');
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Try __ko__ property
+                    if (playerElement.__ko__) {
+                        var context = playerElement.__ko__;
+                        if (context && context.$data && context.$data.player) {
+                            // Check if playing and toggle
+                            if (context.$data.player.playing && typeof context.$data.player.pause === 'function') {
+                                context.$data.player.pause();
+                                console.log('Bandcamp Player: Called player.pause() via __ko__');
+                                return;
+                            } else if (typeof context.$data.player.play === 'function') {
+                                context.$data.player.play();
+                                console.log('Bandcamp Player: Called player.play() via __ko__');
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                // Try global player object
+                if (typeof window.player !== 'undefined') {
+                    if (window.player.playing && typeof window.player.pause === 'function') {
+                        window.player.pause();
+                        console.log('Bandcamp Player: Called window.player.pause()');
+                        return;
+                    } else if (typeof window.player.play === 'function') {
+                        window.player.play();
+                        console.log('Bandcamp Player: Called window.player.play()');
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Bandcamp Player: Could not access player.play()/pause() via view model:', e);
+            }
+            
+            console.log('Bandcamp Player: Could not find play/pause button or method');
         })();
         """
         self.web_view.page().runJavaScript(js_code)
@@ -11969,19 +12384,52 @@ class PlayerWindow(QMainWindow):
                 # This prevents showing unstyled content (especially important for fast-loading Super Shuffle)
                 self.inject_css_with_callback()
             
-            # CRITICAL: Re-inject JavaScript after a delay to ensure DOM elements are ready
+            # CRITICAL: Re-inject JavaScript after delays to ensure DOM elements are ready
             # This fixes issues where image viewer and mini mode player don't initialize on startup
-            # The delay allows the page to fully render before setting up event handlers
+            # The delays allow the page to fully render before setting up event handlers
+            # Use longer delays for startup to ensure everything is ready
+            # On first launch, use even longer delays to ensure everything is properly initialized
             def ensure_js_setup():
                 if hasattr(self, 'web_view') and self.web_view and self.web_view.page():
                     # Re-inject to ensure all JavaScript is properly set up
                     # This is especially important on startup when DOM might not be ready yet
                     self.inject_css()
             
-            # Re-inject after delays to catch elements that load late
-            QTimer.singleShot(500, ensure_js_setup)   # After initial load
-            QTimer.singleShot(1000, ensure_js_setup)   # After more elements load
-            QTimer.singleShot(2000, ensure_js_setup)   # Final catch-all
+            # Check if this is a startup load - use longer delays if so
+            is_startup = getattr(self, '_is_startup_load', False)
+            # Check if this is first launch (settings file didn't exist) - use even longer delays
+            # This works for both startup loads and manually loaded URLs on first launch
+            is_first_launch = not self.settings.get('mini_mode_js_fixed', False)
+            
+            if is_startup or is_first_launch:
+                # Startup or first launch: use longer delays to ensure page is fully ready
+                # First launch needs even more time as everything is being initialized for the first time
+                # This applies to both startup loads AND manually loaded URLs on first launch
+                if is_first_launch:
+                    # First launch: use very long delays to ensure everything is ready
+                    # This is critical for manually loaded URLs on first launch where DOM elements
+                    # might not be ready as quickly as on subsequent launches
+                    QTimer.singleShot(2000, ensure_js_setup)   # After initial load
+                    QTimer.singleShot(4000, ensure_js_setup)   # After more elements load
+                    QTimer.singleShot(6000, ensure_js_setup)   # After even more elements load
+                    QTimer.singleShot(8000, ensure_js_setup)   # Final catch-all for first launch
+                    # Mark that we've done this fix so it doesn't happen again (persists in settings)
+                    # Only set the flag after the first successful injection to ensure it works
+                    def mark_fixed():
+                        self.settings['mini_mode_js_fixed'] = True
+                        self.save_settings()
+                    QTimer.singleShot(9000, mark_fixed)  # Set flag after all injections complete
+                else:
+                    # Regular startup: use longer delays to ensure page is fully ready
+                    QTimer.singleShot(1000, ensure_js_setup)   # After initial load
+                    QTimer.singleShot(2000, ensure_js_setup)   # After more elements load
+                    QTimer.singleShot(3500, ensure_js_setup)   # After even more elements load
+                    QTimer.singleShot(5000, ensure_js_setup)   # Final catch-all for startup
+            else:
+                # Regular load: shorter delays (page is usually ready faster)
+                QTimer.singleShot(500, ensure_js_setup)   # After initial load
+                QTimer.singleShot(1000, ensure_js_setup)   # After more elements load
+                QTimer.singleShot(2000, ensure_js_setup)   # Final catch-all
             
             # Force light page detection after page load with multiple retries
             # This ensures light-page class is applied even if detection ran too early
@@ -11998,6 +12446,31 @@ class PlayerWindow(QMainWindow):
             QTimer.singleShot(300, trigger_light_page_detection)  # After CSS injection
             QTimer.singleShot(600, trigger_light_page_detection)  # After styles compute
             QTimer.singleShot(1000, trigger_light_page_detection)  # Final check
+            
+            # Check for updates after page has loaded (only once, and only if auto-check is enabled)
+            # Delay to ensure JavaScript injection is complete and won't be interfered with
+            if not self._update_check_done:
+                auto_check_enabled = self.settings.get("auto_check_updates", True)
+                if auto_check_enabled:
+                    # Determine delay based on whether this is first launch
+                    is_first_launch = not self.settings.get('mini_mode_js_fixed', False)
+                    if is_first_launch:
+                        # First launch: wait until after all JavaScript injections complete (9s)
+                        delay = 10000
+                    else:
+                        # Regular load: wait until after JavaScript injections complete (5s for startup, 2s for regular)
+                        if is_startup:
+                            delay = 6000
+                        else:
+                            delay = 3000
+                    
+                    def check_updates_after_load():
+                        if not self._update_check_done:
+                            self._update_check_done = True
+                            self._check_for_updates_background()
+                    
+                    QTimer.singleShot(delay, check_updates_after_load)
+            
             # Extract title from page and update title bar
             self.update_title_from_page()
             
@@ -12024,7 +12497,7 @@ class PlayerWindow(QMainWindow):
                 def activate_nano_after_load():
                     # Ensure playlist is created and restored before entering nano mode
                     # This ensures shuffle/repeat buttons can sync correctly
-                    playlist_visible = self.settings.get("playlist_visible", False)
+                    playlist_visible = self.settings.get("playlist_visible", True)  # Default to visible
                     playlist_was_closed = not playlist_visible
                     
                     if not hasattr(self, 'playlist_sidebar') or not self.playlist_sidebar:
@@ -12096,22 +12569,6 @@ class PlayerWindow(QMainWindow):
                 # Ensure original size is set before resizing
                 # IMPORTANT: Only set original size if we're actually in mini/micro mode
                 # and if the current size is NOT micro mode size (to avoid saving micro size as original)
-                if not self.mini_mode_original_size:
-                    current_size = self.size()
-                    current_height = current_size.height()
-                    # Only save current size as original if it's NOT micro mode size (< 300px)
-                    # If we're in micro mode and current size is micro size, use default regular size instead
-                    if current_size.width() > 0 and current_size.height() > 0:
-                        if current_height >= 300:  # Not micro mode size
-                            self.mini_mode_original_size = current_size
-                            logger.debug(f"Saved current size as original in on_page_loaded: {current_size.width()}x{current_size.height()}")
-                        else:
-                            # Current size is micro mode size - use default regular size as original
-                            self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                            logger.debug(f"Current size is micro mode size ({current_height}px), using default regular size as original")
-                    else:
-                        self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                
                 # Only resize if we're still in the same mode (don't resize if user switched modes)
                 if self.mini_mode_state == 1:
                     # Mini mode: wait a bit for carousel to be ready, then resize
@@ -12407,7 +12864,7 @@ class PlayerWindow(QMainWindow):
             logger.warning("inject_css_with_callback: web_view.page() not available, skipping injection")
             return
         
-        css = self.css_injector.get_css(self.compact_mode, self.bandcamp_mode, self.mini_mode_state)
+        css = self.css_injector.get_css(self.compact_mode, self.bandcamp_mode, self.mini_mode_state, self.webview_scrollbar_visible)
         if css:
             # Get the full JavaScript code (same as inject_css but with callback)
             js = self._get_css_injection_js(css)
@@ -12419,19 +12876,6 @@ class PlayerWindow(QMainWindow):
                 QTimer.singleShot(10, self.fade_in_page)
             
             self.web_view.page().runJavaScript(js, on_css_injected)
-    
-    def _load_middle_click_js(self):
-        """Load middle-click scroll JavaScript from file"""
-        js_file = Path(__file__).parent / "js" / "middle_click_scroll.js"
-        if js_file.exists():
-            try:
-                with open(js_file, 'r', encoding='utf-8') as f:
-                    return f.read()
-            except Exception as e:
-                logger.warning(f"Could not load middle-click scroll JS: {e}")
-        else:
-            logger.warning(f"Middle-click scroll JS file not found: {js_file}")
-        return ""
     
     def _get_bandcamp_mode_hide_js(self):
         """Get JavaScript code to hide unwanted Bandcamp elements"""
@@ -12485,31 +12929,54 @@ class PlayerWindow(QMainWindow):
                             // Use a function to setup listeners that can be called multiple times safely
                             function setupAutohideHover() {{
                                 var player = document.querySelector('#player');
-                                if (player && !player.hasAttribute('data-autohide-setup')) {{
-                                    player.setAttribute('data-autohide-setup', 'true');
-                                    
-                                    // Add hover class on mouseenter
-                                    player.addEventListener('mouseenter', function() {{
-                                        player.classList.add('player-hovered');
-                                    }});
-                                    
-                                    // Remove hover class on mouseleave
-                                    player.addEventListener('mouseleave', function() {{
-                                        player.classList.remove('player-hovered');
-                                    }});
+                                if (!player) return;
+                                
+                                // If already set up, remove old listeners first to prevent duplicates
+                                if (player.hasAttribute('data-autohide-setup')) {{
+                                    // Remove old event listeners if they exist
+                                    var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                                    var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                                    if (oldEnterHandler) {{
+                                        player.removeEventListener('mouseenter', oldEnterHandler);
+                                    }}
+                                    if (oldLeaveHandler) {{
+                                        player.removeEventListener('mouseleave', oldLeaveHandler);
+                                    }}
                                 }}
+                                
+                                // Create new event handlers and store references
+                                var enterHandler = function() {{
+                                    player.classList.add('player-hovered');
+                                }};
+                                var leaveHandler = function() {{
+                                    player.classList.remove('player-hovered');
+                                }};
+                                
+                                // Store handlers so we can remove them later
+                                player._bandcampAutohideEnterHandler = enterHandler;
+                                player._bandcampAutohideLeaveHandler = leaveHandler;
+                                
+                                // Add new event listeners
+                                player.addEventListener('mouseenter', enterHandler);
+                                player.addEventListener('mouseleave', leaveHandler);
+                                
+                                // Mark as set up
+                                player.setAttribute('data-autohide-setup', 'true');
                             }}
                             
                             // Setup with retry logic - player might not exist yet on startup
+                            // Use more retries and longer delays for startup scenarios
                             function setupAutohideWithRetry(retryCount) {{
                                 retryCount = retryCount || 0;
-                                var maxRetries = 10;
-                                var retryDelay = 100;
+                                // Increased retries for startup (20 retries = up to 4 seconds)
+                                var maxRetries = 20;
+                                // Progressive delay: start with 100ms, increase to 300ms for later retries
+                                var retryDelay = retryCount < 10 ? 100 : 300;
                                 
                                 var player = document.querySelector('#player');
                                 if (player) {{
                                     // Player exists, set up hover listeners
-                            setupAutohideHover();
+                                    setupAutohideHover();
                                 }} else if (retryCount < maxRetries) {{
                                     // Player doesn't exist yet, retry after delay
                                     setTimeout(function() {{
@@ -12518,13 +12985,42 @@ class PlayerWindow(QMainWindow):
                                 }}
                             }}
                             
-                            // Start setup with retry
-                            setupAutohideWithRetry();
+                            // Start setup with retry - also check if page is ready
+                            if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+                                // Page is ready, start setup immediately
+                                setupAutohideWithRetry();
+                            }} else {{
+                                // Page not ready yet, wait for it
+                                document.addEventListener('DOMContentLoaded', function() {{
+                                    setupAutohideWithRetry();
+                                }});
+                                // Also try after a delay in case DOMContentLoaded already fired
+                                setTimeout(function() {{
+                                    setupAutohideWithRetry();
+                                }}, 100);
+                            }}
                             
                             // Also setup when player is added dynamically (MutationObserver)
+                            // Use a debounced approach to prevent excessive calls
                             if (typeof MutationObserver !== 'undefined') {{
+                                var setupTimeout = null;
                                 var observer = new MutationObserver(function(mutations) {{
-                                    setupAutohideHover();
+                                    // Debounce: only check after mutations stop for 100ms
+                                    if (setupTimeout) {{
+                                        clearTimeout(setupTimeout);
+                                    }}
+                                    setupTimeout = setTimeout(function() {{
+                                        var player = document.querySelector('#player');
+                                        // Only setup if player exists and isn't already set up
+                                        // OR if player was replaced (lost the attribute)
+                                        if (player) {{
+                                            // Check if setup is needed (player exists but not set up, or was replaced)
+                                            var needsSetup = !player.hasAttribute('data-autohide-setup');
+                                            if (needsSetup) {{
+                                                setupAutohideHover();
+                                            }}
+                                        }}
+                                    }}, 100);
                                 }});
                                 observer.observe(document.body, {{
                                     childList: true,
@@ -12534,10 +13030,23 @@ class PlayerWindow(QMainWindow):
                         }} else {{
                             document.body.classList.remove('mini-mode-autohide');
                             
-                            // Remove hover class if autohide is disabled
+                            // Remove hover class and event listeners if autohide is disabled
                             var player = document.querySelector('#player');
                             if (player) {{
                                 player.classList.remove('player-hovered');
+                                
+                                // Remove event listeners if they exist
+                                var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                                var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                                if (oldEnterHandler) {{
+                                    player.removeEventListener('mouseenter', oldEnterHandler);
+                                    delete player._bandcampAutohideEnterHandler;
+                                }}
+                                if (oldLeaveHandler) {{
+                                    player.removeEventListener('mouseleave', oldLeaveHandler);
+                                    delete player._bandcampAutohideLeaveHandler;
+                                }}
+                                
                                 player.removeAttribute('data-autohide-setup');
                             }}
                         }}
@@ -12626,14 +13135,49 @@ class PlayerWindow(QMainWindow):
                             }}
                         }}
                         
-                        // Setup button when in mini mode
+                        // Setup button when in mini mode (with retry logic for startup)
                         if ({self.mini_mode_state} === 1) {{
-                            setupPlayerVisibilityToggleButton();
+                            // Setup with retry logic - player might not exist yet on startup
+                            function setupButtonWithRetry(retryCount) {{
+                                retryCount = retryCount || 0;
+                                var maxRetries = 20;
+                                var retryDelay = retryCount < 10 ? 100 : 300;
+                                
+                                var player = document.querySelector('#player');
+                                if (player) {{
+                                    // Player exists, set up button
+                                    setupPlayerVisibilityToggleButton();
+                                }} else if (retryCount < maxRetries) {{
+                                    // Player doesn't exist yet, retry after delay
+                                    setTimeout(function() {{
+                                        setupButtonWithRetry(retryCount + 1);
+                                    }}, retryDelay);
+                                }}
+                            }}
+                            
+                            // Start setup with retry - also check if page is ready
+                            if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+                                // Page is ready, start setup immediately
+                                setupButtonWithRetry();
+                            }} else {{
+                                // Page not ready yet, wait for it
+                                document.addEventListener('DOMContentLoaded', function() {{
+                                    setupButtonWithRetry();
+                                }});
+                                // Also try after a delay in case DOMContentLoaded already fired
+                                setTimeout(function() {{
+                                    setupButtonWithRetry();
+                                }}, 100);
+                            }}
                             
                             // Also setup when player is added dynamically or when classes change
                             if (typeof MutationObserver !== 'undefined') {{
                                 var observer = new MutationObserver(function(mutations) {{
-                                    setupPlayerVisibilityToggleButton();
+                                    // Only setup if player exists (avoid unnecessary calls)
+                                    var player = document.querySelector('#player');
+                                    if (player) {{
+                                        setupPlayerVisibilityToggleButton();
+                                    }}
                                 }});
                                 observer.observe(document.body, {{
                                     childList: true,
@@ -12650,16 +13194,42 @@ class PlayerWindow(QMainWindow):
                             }}
                         }}
                         
-                        // Restore cover art visibility when switching to mini mode
-                        var coverArt = document.querySelector('#tralbum-art-carousel');
-                        if (coverArt) {{
-                            coverArt.style.display = '';
-                            coverArt.style.visibility = '';
-                            coverArt.style.height = '';
-                            coverArt.style.maxHeight = '';
-                            coverArt.style.width = '';
-                            coverArt.style.margin = '';
-                            coverArt.style.padding = '';
+                        // Restore cover art visibility when switching to mini mode (with retry for startup)
+                        function restoreCoverArtVisibility(retryCount) {{
+                            retryCount = retryCount || 0;
+                            var maxRetries = 20;
+                            var retryDelay = retryCount < 10 ? 100 : 300;
+                            
+                            var coverArt = document.querySelector('#tralbum-art-carousel');
+                            if (coverArt) {{
+                                coverArt.style.display = '';
+                                coverArt.style.visibility = '';
+                                coverArt.style.height = '';
+                                coverArt.style.maxHeight = '';
+                                coverArt.style.width = '';
+                                coverArt.style.margin = '';
+                                coverArt.style.padding = '';
+                            }} else if (retryCount < maxRetries) {{
+                                // Cover art doesn't exist yet, retry after delay
+                                setTimeout(function() {{
+                                    restoreCoverArtVisibility(retryCount + 1);
+                                }}, retryDelay);
+                            }}
+                        }}
+                        
+                        // Start restoration with retry - also check if page is ready
+                        if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+                            // Page is ready, start restoration immediately
+                            restoreCoverArtVisibility();
+                        }} else {{
+                            // Page not ready yet, wait for it
+                            document.addEventListener('DOMContentLoaded', function() {{
+                                restoreCoverArtVisibility();
+                            }});
+                            // Also try after a delay in case DOMContentLoaded already fired
+                            setTimeout(function() {{
+                                restoreCoverArtVisibility();
+                            }}, 100);
                         }}
                         // Clear CSS custom property for micro mode player height
                         document.documentElement.style.removeProperty('--micro-mode-player-height');
@@ -13161,6 +13731,94 @@ class PlayerWindow(QMainWindow):
         
         self.web_view.page().runJavaScript(js_code, handle_action)
     
+    def _initialize_image_viewer_modal_early(self):
+        """Initialize image viewer modal structure early (before any page loads)
+        This ensures the modal is ready whenever a URL is loaded, fixing first launch issues"""
+        if not hasattr(self, 'web_view') or not self.web_view or not self.web_view.page():
+            # Retry if web view isn't ready yet
+            QTimer.singleShot(100, self._initialize_image_viewer_modal_early)
+            return
+        
+        # Inject JavaScript to create modal structure early
+        # This creates the modal DOM elements and basic event handlers
+        # Click handlers for cover art will be attached when pages load
+        modal_init_js = """
+        (function initializeModalStructure() {
+            // Check if body is ready - if not, retry
+            if (!document.body) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initializeModalStructure);
+                } else {
+                    setTimeout(initializeModalStructure, 50);
+                }
+                return;
+            }
+            
+            // Only create modal if it doesn't exist
+            if (document.getElementById('bandcamp-player-cover-modal')) {
+                return; // Already exists
+            }
+            
+            // Create modal structure
+            var modal = document.createElement('div');
+            modal.id = 'bandcamp-player-cover-modal';
+            
+            var closeBtn = document.createElement('div');
+            closeBtn.id = 'bandcamp-player-cover-modal-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.setAttribute('aria-label', 'Close');
+            
+            var img = document.createElement('img');
+            img.id = 'bandcamp-player-cover-modal-content';
+            
+            modal.appendChild(closeBtn);
+            modal.appendChild(img);
+            
+            try {
+                document.body.appendChild(modal);
+                console.log('Bandcamp Player: Image viewer modal structure initialized early');
+            } catch (e) {
+                console.error('Bandcamp Player: Error appending modal to body:', e);
+                setTimeout(initializeModalStructure, 100);
+                return;
+            }
+            
+            // Initialize zoom state (will be used by full setup later)
+            if (!window._bandcampModalZoomLevel) {
+                window._bandcampModalZoomLevel = 1;
+                window._bandcampModalMinZoom = 0.5;
+                window._bandcampModalMaxZoom = 5;
+                window._bandcampModalZoomStep = 0.1;
+            }
+            
+            // Initialize drag state variables
+            if (!window._bandcampModalDragState) {
+                window._bandcampModalDragState = {
+                    isDragging: false,
+                    dragStartX: 0,
+                    dragStartY: 0,
+                    currentTranslateX: 0,
+                    currentTranslateY: 0,
+                    mouseDownX: 0,
+                    mouseDownY: 0,
+                    mouseButtonDown: false,
+                    dragThreshold: 5
+                };
+            }
+            
+            // Mark that modal structure is ready (handlers will be set up when page loads)
+            modal.setAttribute('data-structure-ready', 'true');
+        })();
+        """
+        
+        try:
+            self.web_view.page().runJavaScript(modal_init_js)
+            logger.debug("Initialized image viewer modal structure early")
+        except Exception as e:
+            logger.warning(f"Could not initialize image viewer modal early: {e}")
+            # Retry after a delay
+            QTimer.singleShot(200, self._initialize_image_viewer_modal_early)
+    
     def _get_cover_art_modal_js(self):
         """Get JavaScript code to handle cover art modal functionality"""
         # Get reference to self for Python callbacks
@@ -13182,22 +13840,28 @@ class PlayerWindow(QMainWindow):
                 }
                 
                 // Zoom state (shared across modal instances)
-                var zoomLevel = 1;
-                var minZoom = 0.5;
-                var maxZoom = 5;
-                var zoomStep = 0.1;
+                // Use global state if available (from early initialization), otherwise create new
+                var zoomLevel = window._bandcampModalZoomLevel || 1;
+                var minZoom = window._bandcampModalMinZoom || 0.5;
+                var maxZoom = window._bandcampModalMaxZoom || 5;
+                var zoomStep = window._bandcampModalZoomStep || 0.1;
                 
-                // Create modal if it doesn't exist
-                if (!document.getElementById('bandcamp-player-cover-modal')) {
-                    var modal = document.createElement('div');
+                // Get or create modal - check if it was already created by early initialization
+                var modal = document.getElementById('bandcamp-player-cover-modal');
+                var closeBtn = null;
+                var img = null;
+                
+                if (!modal) {
+                    // Modal doesn't exist - create it (fallback for cases where early init didn't run)
+                    modal = document.createElement('div');
                     modal.id = 'bandcamp-player-cover-modal';
                     
-                    var closeBtn = document.createElement('div');
+                    closeBtn = document.createElement('div');
                     closeBtn.id = 'bandcamp-player-cover-modal-close';
                     closeBtn.innerHTML = '×';
                     closeBtn.setAttribute('aria-label', 'Close');
                     
-                    var img = document.createElement('img');
+                    img = document.createElement('img');
                     img.id = 'bandcamp-player-cover-modal-content';
                     
                     modal.appendChild(closeBtn);
@@ -13219,6 +13883,20 @@ class PlayerWindow(QMainWindow):
                         setTimeout(setupCoverArtModal, 100);
                         return;
                     }
+                } else {
+                    // Modal already exists (from early initialization) - just get references
+                    closeBtn = document.getElementById('bandcamp-player-cover-modal-close');
+                    img = document.getElementById('bandcamp-player-cover-modal-content');
+                }
+                
+                // Only set up event handlers if they haven't been set up yet
+                // Check if modal has data attribute to indicate handlers are already set up
+                // If modal was created early, we still need to set up the event handlers
+                var handlersNeedSetup = !modal.hasAttribute('data-handlers-setup');
+                
+                if (handlersNeedSetup) {
+                    // Mark as set up to prevent duplicate handlers
+                    modal.setAttribute('data-handlers-setup', 'true');
                     
                     // Close modal functions
                     function closeModal() {
@@ -13335,14 +14013,14 @@ class PlayerWindow(QMainWindow):
                         applyZoom(newZoom, mouseX, mouseY);
                     }, { passive: false });
                     
-                    // Document-level handler to catch middle-click on modal/image before middle-click scroll handler
-                    // This must run in capture phase before the middle-click scroll handler
+                    // Document-level handler to catch middle-click on modal/image
+                    // This must run in capture phase to handle events early
                     document.addEventListener('mousedown', function(e) {
                         if ((e.button === 0 || e.button === 1) && modal.classList.contains('active')) {
                             // Check if click is on the modal or image
                             var target = e.target;
                             if (target === img || target === modal || modal.contains(target)) {
-                                // Prevent middle-click scroll handler from intercepting
+                                // Handle middle-click for image dragging
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.stopImmediatePropagation();
@@ -13361,7 +14039,7 @@ class PlayerWindow(QMainWindow):
                     // Also handle on the image element itself (as backup)
                     img.addEventListener('mousedown', function(e) {
                         if ((e.button === 0 || e.button === 1) && modal.classList.contains('active')) { // Left or middle click
-                            // Prevent middle-click scroll handler from intercepting
+                            // Handle middle-click for image dragging
                             e.preventDefault();
                             e.stopPropagation();
                             e.stopImmediatePropagation();
@@ -13376,8 +14054,7 @@ class PlayerWindow(QMainWindow):
                         }
                     }, { capture: true, passive: false }); // Use capture phase with passive: false to allow preventDefault
                     
-                    // Note: Middle-click is now enabled in image viewer (works like left-click for dragging)
-                    // The middle-click scroll handler will check for modal and skip handling to allow this
+                    // Note: Middle-click is enabled in image viewer (works like left-click for dragging)
                     
                     // Handle mouse move for dragging (left click only)
                     document.addEventListener('mousemove', function(e) {
@@ -13858,15 +14535,18 @@ class PlayerWindow(QMainWindow):
                 }
                 
                 // Setup handlers with retry logic - elements might not exist yet on startup
+                // Use more retries and longer delays for startup scenarios
                 function setupWithRetry(retryCount) {
                     retryCount = retryCount || 0;
-                    var maxRetries = 10;
-                    var retryDelay = 100;
+                    // Increased retries for startup (20 retries = up to 4 seconds)
+                    var maxRetries = 20;
+                    // Progressive delay: start with 100ms, increase to 300ms for later retries
+                    var retryDelay = retryCount < 10 ? 100 : 300;
                     
                     var coverArtContainer = document.querySelector('#tralbum-art-carousel');
                     if (coverArtContainer) {
                         // Element exists, set up handlers
-                setupCoverArtClickHandlers();
+                        setupCoverArtClickHandlers();
                     } else if (retryCount < maxRetries) {
                         // Element doesn't exist yet, retry after delay
                         setTimeout(function() {
@@ -13875,8 +14555,20 @@ class PlayerWindow(QMainWindow):
                     }
                 }
                 
-                // Start setup with retry
-                setupWithRetry();
+                // Start setup with retry - also check if page is ready
+                if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                    // Page is ready, start setup immediately
+                    setupWithRetry();
+                } else {
+                    // Page not ready yet, wait for it
+                    document.addEventListener('DOMContentLoaded', function() {
+                        setupWithRetry();
+                    });
+                    // Also try after a delay in case DOMContentLoaded already fired
+                    setTimeout(function() {
+                        setupWithRetry();
+                    }, 100);
+                }
                 
                 // Also setup when cover art is added dynamically
                 if (typeof MutationObserver !== 'undefined') {
@@ -13897,7 +14589,6 @@ class PlayerWindow(QMainWindow):
     
     def _get_css_injection_js(self, css):
         """Get the JavaScript code for CSS injection (shared by both methods)"""
-        middle_click_js = self._load_middle_click_js()
         mini_mode_js = self._get_mini_mode_class_js()
         bandcamp_hide_js = self._get_bandcamp_mode_hide_js() if self.bandcamp_mode else ""
         cover_art_modal_js = self._get_cover_art_modal_js()
@@ -14297,14 +14988,6 @@ class PlayerWindow(QMainWindow):
                         console.error('Bandcamp Player: Error applying bandcamp mode:', e);
                     }}
                     
-                    // Setup middle-click grab-and-drag functionality (like Scroll Anywhere)
-                    // Wrap in try-catch to prevent errors from blocking other initialization
-                    try {{
-                        {middle_click_js}
-                    }} catch (e) {{
-                        console.error('Bandcamp Player: Error setting up middle-click:', e);
-                    }}
-                    
                     // Setup cover art modal functionality (CRITICAL - image viewer)
                     // Wrap in try-catch but log errors - this is important
                     // The function itself now has retry logic, but we'll also retry here if it fails
@@ -14449,7 +15132,7 @@ class PlayerWindow(QMainWindow):
             sys.stdout.flush()
         logger.debug(f"inject_css: Starting (compact={self.compact_mode}, bandcamp={self.bandcamp_mode}, mini_mode_state={getattr(self, 'mini_mode_state', 'N/A')})")
         try:
-            css = self.css_injector.get_css(self.compact_mode, self.bandcamp_mode, self.mini_mode_state)
+            css = self.css_injector.get_css(self.compact_mode, self.bandcamp_mode, self.mini_mode_state, self.webview_scrollbar_visible)
             if css:
                 if debug_mode:
                     print(f"[DEBUG] inject_css: CSS generated, length={len(css)} chars")
@@ -14490,18 +15173,11 @@ class PlayerWindow(QMainWindow):
         # If bandcamp mode is disabled and mini mode is active, reset mini mode
         if not self.bandcamp_mode and self.mini_mode_state != 0:
             self.mini_mode_state = 0
-            if self.mini_mode_original_size:
-                # Restore width from original, but always use default height
-                self.resize(self.mini_mode_original_size.width(), WINDOW_DEFAULT_HEIGHT)
-                self.mini_mode_original_size = None
-            else:
-                # Ensure default height
-                self.resize(self.width(), WINDOW_DEFAULT_HEIGHT)
+            # Always use default regular mode size
+            self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
             self.inject_css()
             self.update_mini_mode_button()
             self.update_mini_mode_menu_text()
-            # Save original size as None (regular mode)
-            self.settings["mini_mode_original_size"] = None
         self.save_settings()
     
     def toggle_compact_mode(self):
@@ -14528,11 +15204,7 @@ class PlayerWindow(QMainWindow):
         # Cycle through states: 0 -> 1 -> 2 -> 0
         self.mini_mode_state = (self.mini_mode_state + 1) % 3
         
-        # Store original size if entering mini mode
-        if self.mini_mode_state == 1 and not self.mini_mode_original_size:
-            self.mini_mode_original_size = self.size()
-        
-        # Apply mini mode
+        # Apply mini mode (no need to store original size - always use defaults)
         self.apply_mini_mode()
         
         # If windows are docked together (linked), reposition playlist to maintain docked relationship
@@ -14651,35 +15323,25 @@ class PlayerWindow(QMainWindow):
             pass
         
         if self.mini_mode_state == 0:
-            # Regular mode: restore original size and minimum height
+            # Regular mode: always use fixed default size (not resizable)
             # Clear micro mode cover art height constraints after CSS injection
             # Use a small delay to ensure CSS injection JavaScript has run
             QTimer.singleShot(50, self._clear_micro_mode_cover_art_height)
             
-            # FIRST: Restore original minimum/maximum sizes to re-enable resizing BEFORE resizing
-            # This ensures the window can be resized properly when switching to regular mode
-            if hasattr(self, '_micro_mode_original_min_size'):
-                self.setMinimumSize(self._micro_mode_original_min_size)
-                self.setMaximumSize(self._micro_mode_original_max_size)
-                delattr(self, '_micro_mode_original_min_size')
-                delattr(self, '_micro_mode_original_max_size')
-            elif hasattr(self, '_mini_mode_original_min_size'):
-                self.setMinimumSize(self._mini_mode_original_min_size)
-                self.setMaximumSize(self._mini_mode_original_max_size)
+            # Clear any stored constraint attributes (no longer needed)
+            if hasattr(self, '_mini_mode_original_min_size'):
                 delattr(self, '_mini_mode_original_min_size')
+            if hasattr(self, '_mini_mode_original_max_size'):
                 delattr(self, '_mini_mode_original_max_size')
+            if hasattr(self, '_micro_mode_original_min_size'):
+                delattr(self, '_micro_mode_original_min_size')
+            if hasattr(self, '_micro_mode_original_max_size'):
+                delattr(self, '_micro_mode_original_max_size')
             
-            # Always ensure regular mode has resizable constraints (even if we restored stored sizes)
-            # This prevents issues if stored sizes were somehow fixed
-            current_min = self.minimumSize()
-            current_max = self.maximumSize()
-            # If min and max are the same (fixed size), restore to resizable defaults
-            if current_min.width() == current_max.width() and current_min.height() == current_max.height():
-                self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
-                self.setMaximumSize(QSize(16777215, 16777215))  # Qt's default maximum (effectively unlimited)
-            # Otherwise, ensure minimum is at least the window minimums
-            elif current_min.width() < WINDOW_MIN_WIDTH or current_min.height() < WINDOW_MIN_HEIGHT:
-                self.setMinimumSize(max(WINDOW_MIN_WIDTH, current_min.width()), max(WINDOW_MIN_HEIGHT, current_min.height()))
+            # Regular mode: fixed size, not resizable
+            # Always use default size - no need to store/restore
+            self.setMinimumSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
+            self.setMaximumSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
             
             # Restore playlist height if we're leaving micro mode
             # Try to restore from _playlist_height_before_micro first, then from playlist_height_regular
@@ -14753,134 +15415,33 @@ class PlayerWindow(QMainWindow):
                 except Exception:
                     pass
             
-            # Always use default height for regular mode
-            # Check if we're coming from micro mode (especially on startup)
-            is_coming_from_micro = hasattr(self, '_was_micro_mode') and self._was_micro_mode
-            current_size = self.size()
-            print(f"[DEBUG] Switching to regular mode: is_coming_from_micro={is_coming_from_micro}, mini_mode_original_size={self.mini_mode_original_size}, current_size={current_size.width()}x{current_size.height()}")
-            logger.debug(f"Switching to regular mode: is_coming_from_micro={is_coming_from_micro}, mini_mode_original_size={self.mini_mode_original_size}, current_size={current_size.width()}x{current_size.height()}")
+            # Always resize to default regular mode size (fixed, not resizable)
+            self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
+            QApplication.processEvents()  # Force UI update
+            # Ensure window stays on screen after resize
+            self._ensure_window_on_screen()
+            logger.debug(f"Switched to regular mode: {WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
             
-            # Force resize to regular mode size if coming from micro mode
-            if is_coming_from_micro:
-                print(f"[DEBUG] Coming from micro mode - forcing resize to regular mode size: {WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
-                logger.debug(f"Coming from micro mode - forcing resize to regular mode size: {WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
-                # Always resize to default regular mode size when coming from micro mode
-                self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                QApplication.processEvents()  # Force UI update
-                # Ensure window stays on screen after resize
-                self._ensure_window_on_screen()
-                # Update mini_mode_original_size to default for future use
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                self.settings["mini_mode_original_size"] = {
-                    "width": WINDOW_DEFAULT_WIDTH,
-                    "height": WINDOW_DEFAULT_HEIGHT
-                }
-                self.save_settings()
-                print(f"[DEBUG] Resized to: {self.size().width()}x{self.size().height()}")
-                logger.debug(f"Resized to: {self.size().width()}x{self.size().height()}")
-            
-            if self.mini_mode_original_size:
-                # Check if the saved original size is unreasonably small (likely micro mode size)
-                # Micro mode is typically < 200px height, regular mode should be >= 640px
-                original_height = self.mini_mode_original_size.height()
-                if original_height < 300:  # Likely micro mode size, use default instead
-                    logger.debug(f"Saved original size appears to be micro mode size ({original_height}px), using default regular mode size")
-                    self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                    QApplication.processEvents()  # Force UI update
-                    # Ensure window stays on screen after resize
-                    if is_coming_from_micro:
-                        self._ensure_window_on_screen()
-                    # Update mini_mode_original_size to default for future use
-                    self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                    self.settings["mini_mode_original_size"] = {
-                        "width": WINDOW_DEFAULT_WIDTH,
-                        "height": WINDOW_DEFAULT_HEIGHT
-                    }
-                    self.save_settings()
-                else:
-                    # Restore width from original, but use default height
-                    # If we're coming from micro mode, ensure we restore the original size first
-                    if is_coming_from_micro:
-                        # Coming from micro mode - restore original width first to ensure correct size
-                        original_width = self.mini_mode_original_size.width()
-                        self.resize(original_width, WINDOW_DEFAULT_HEIGHT)
-                        logger.debug(f"Restored original width when switching from micro to regular: {original_width}")
-                        QApplication.processEvents()  # Force UI update
-                        # Ensure window stays on screen after resize
-                        self._ensure_window_on_screen()
-                    else:
-                        # Not coming from micro mode - just restore width
-                        self.resize(self.mini_mode_original_size.width(), WINDOW_DEFAULT_HEIGHT)
-                # Don't clear mini_mode_original_size - keep it for potential future mini/micro mode switches
-                # Only clear it if we're sure we're staying in regular mode permanently
-            else:
-                # No original size saved - use default regular mode size
-                # This is especially important when starting in micro mode
-                if is_coming_from_micro:
-                    logger.debug("Switching from micro to regular mode on startup - using default regular mode size")
-                self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                QApplication.processEvents()  # Force UI update
-                # Ensure window stays on screen after resize
-                if is_coming_from_micro:
-                    self._ensure_window_on_screen()
-                # Save default as original size for future use
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                self.settings["mini_mode_original_size"] = {
-                    "width": WINDOW_DEFAULT_WIDTH,
-                    "height": WINDOW_DEFAULT_HEIGHT
-                }
-                self.save_settings()
-            # Min/max sizes are already set above with proper resizable constraints
-            # No longer using track change detection
+            # Clear micro mode flag
             self._was_micro_mode = False
-            # Don't save original size as None - keep it in case user switches back to mini/micro mode
-            # Only clear from settings if we're certain we want to reset it
         elif self.mini_mode_state == 1:
             # Mini mode: resize to cover art size (image height)
             # Clear micro mode cover art height constraints after CSS injection
             # Use a small delay to ensure CSS injection JavaScript has run
             QTimer.singleShot(50, self._clear_micro_mode_cover_art_height)
             
-            # Store original minimum/maximum sizes to restore later
-            if not hasattr(self, '_mini_mode_original_min_size'):
-                self._mini_mode_original_min_size = self.minimumSize()
-                self._mini_mode_original_max_size = self.maximumSize()
+            # Clear any stored constraint attributes (no longer needed)
+            if hasattr(self, '_mini_mode_original_min_size'):
+                delattr(self, '_mini_mode_original_min_size')
+            if hasattr(self, '_mini_mode_original_max_size'):
+                delattr(self, '_mini_mode_original_max_size')
+            if hasattr(self, '_micro_mode_original_min_size'):
+                delattr(self, '_micro_mode_original_min_size')
+            if hasattr(self, '_micro_mode_original_max_size'):
+                delattr(self, '_micro_mode_original_max_size')
             
-            # Store original size if not already stored
-            # If we're coming from micro mode and mini_mode_original_size is already set (from settings),
-            # we should restore the original size first before resizing to mini mode
-            if not self.mini_mode_original_size:
-                # No original size stored - use default regular mode size
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                # Save original size to settings
-                self.settings["mini_mode_original_size"] = {
-                    "width": WINDOW_DEFAULT_WIDTH,
-                    "height": WINDOW_DEFAULT_HEIGHT
-                }
-                self.save_settings()
-            else:
-                # Check if the saved original size is unreasonably small (likely micro mode size)
-                # Micro mode is typically < 200px height, regular mode should be >= 640px
-                original_height = self.mini_mode_original_size.height()
-                if original_height < 300:  # Likely micro mode size, use default instead
-                    logger.debug(f"Saved original size appears to be micro mode size ({original_height}px), using default regular mode size")
-                    self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                    self.settings["mini_mode_original_size"] = {
-                        "width": WINDOW_DEFAULT_WIDTH,
-                        "height": WINDOW_DEFAULT_HEIGHT
-                    }
-                    self.save_settings()
-                
-                # Original size exists (from settings) - restore it first to ensure correct width
-                # This handles the case where app was closed in micro mode and opened in micro mode
-                # When switching to mini mode, we need to restore the original size first
-                if hasattr(self, '_was_micro_mode') and self._was_micro_mode:
-                    # Coming from micro mode - restore original size first
-                    original_width = self.mini_mode_original_size.width()
-                    original_height = self.mini_mode_original_size.height()
-                    self.resize(original_width, original_height)
-                    logger.debug(f"Restored original size when switching from micro to mini: {original_width}x{original_height}")
-                    QApplication.processEvents()  # Force UI update
+            # Mini mode: always use WINDOW_DEFAULT_WIDTH for width
+            # Height will be calculated dynamically by resize_to_mini_mode based on cover art + playlist
             
             # Restore playlist height if we're leaving micro mode
             # Try to restore from _playlist_height_before_micro first, then from playlist_height_regular
@@ -14966,47 +15527,60 @@ class PlayerWindow(QMainWindow):
             self._was_micro_mode = False
         elif self.mini_mode_state == 2:
             # Micro mode: resize to player size
-            # Store original size if not already stored
-            # IMPORTANT: Only save original size if current size is NOT micro mode size
-            # This prevents saving micro mode size as "original" when app starts in micro mode
-            current_size = self.size()
-            current_height = current_size.height()
+            # Clear any stored constraint attributes (no longer needed)
+            if hasattr(self, '_mini_mode_original_min_size'):
+                delattr(self, '_mini_mode_original_min_size')
+            if hasattr(self, '_mini_mode_original_max_size'):
+                delattr(self, '_mini_mode_original_max_size')
+            if hasattr(self, '_micro_mode_original_min_size'):
+                delattr(self, '_micro_mode_original_min_size')
+            if hasattr(self, '_micro_mode_original_max_size'):
+                delattr(self, '_micro_mode_original_max_size')
             
-            if not self.mini_mode_original_size:
-                # No original size stored - check if current size is reasonable (not micro mode)
-                if current_height >= 300:  # Likely regular/mini mode size, save it
-                    self.mini_mode_original_size = current_size
-                    # Save original size to settings
-                    self.settings["mini_mode_original_size"] = {
-                        "width": self.mini_mode_original_size.width(),
-                        "height": self.mini_mode_original_size.height()
-                    }
-                    self.save_settings()
-                    logger.debug(f"Saved original size when entering micro mode: {self.mini_mode_original_size.width()}x{self.mini_mode_original_size.height()}")
-                else:
-                    # Current size is micro mode size - use default regular mode size as original
-                    self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                    self.settings["mini_mode_original_size"] = {
-                        "width": WINDOW_DEFAULT_WIDTH,
-                        "height": WINDOW_DEFAULT_HEIGHT
-                    }
-                    self.save_settings()
-                    logger.debug(f"App started in micro mode, using default regular mode size as original: {WINDOW_DEFAULT_WIDTH}x{WINDOW_DEFAULT_HEIGHT}")
+            # Reset window minimum/maximum sizes to allow resizing
+            # This must happen so the window can actually resize when resize_to_micro_mode is called
+            # IMPORTANT: Clear mini mode's fixed size constraints first
+            # When coming from mini mode, we need to aggressively clear the fixed size constraints
+            current_size = self.size()
+            is_coming_from_mini = current_size.height() > 300  # Likely coming from mini mode (mini mode is typically > 300px)
+            
+            if is_coming_from_mini:
+                # Clear any resizing flags that might block the resize
+                if hasattr(self, '_mini_mode_resizing'):
+                    self._mini_mode_resizing = False
+                if hasattr(self, '_micro_mode_resizing'):
+                    self._micro_mode_resizing = False
+                
+                # Aggressively clear fixed size constraints by setting to unlimited first
+                # This ensures Qt recognizes the constraints have changed
+                self.setMinimumSize(0, 0)  # Temporarily set to 0 to break any fixed constraints
+                self.setMaximumSize(QSize(16777215, 16777215))  # Qt's default maximum (effectively unlimited)
+                QApplication.processEvents()
+                
+                # Force a small immediate resize to break the fixed size constraint
+                # This ensures Qt actually recognizes the constraints have changed
+                # Resize to a size that's definitely different from mini mode
+                temp_height = max(200, min(250, current_size.height() // 2))
+                self.resize(WINDOW_DEFAULT_WIDTH, temp_height)
+                QApplication.processEvents()
+                QApplication.processEvents()  # Process twice to ensure resize is applied
+                
+                # Now set to proper minimums
+                self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+                QApplication.processEvents()
+                
+                # Force geometry update to ensure constraints are fully cleared
+                self.updateGeometry()
+                QApplication.processEvents()
+                logger.debug(f"Cleared mini mode fixed size constraints (was {current_size.width()}x{current_size.height()}, temp resize to {temp_height}px)")
             else:
-                # Original size exists - check if it's unreasonably small (likely micro mode size)
-                original_height = self.mini_mode_original_size.height()
-                if original_height < 300:  # Likely micro mode size, use default instead
-                    logger.debug(f"Saved original size appears to be micro mode size ({original_height}px), using default regular mode size")
-                    self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
-                    self.settings["mini_mode_original_size"] = {
-                        "width": WINDOW_DEFAULT_WIDTH,
-                        "height": WINDOW_DEFAULT_HEIGHT
-                    }
-                    self.save_settings()
-            # Store original minimum/maximum sizes to restore later
-            if not hasattr(self, '_micro_mode_original_min_size'):
-                self._micro_mode_original_min_size = self.minimumSize()
-                self._micro_mode_original_max_size = self.maximumSize()
+                # Not coming from mini mode - just set normal constraints
+                self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+                self.setMaximumSize(QSize(16777215, 16777215))
+                QApplication.processEvents()
+            
+            # Micro mode: always use WINDOW_DEFAULT_WIDTH for width
+            # Height will be calculated dynamically by resize_to_micro_mode based on player + playlist
             
             # Save current playlist height before entering micro mode (if not already saved)
             # Only save if we're coming from mini/regular mode (not already in micro)
@@ -15039,38 +15613,74 @@ class PlayerWindow(QMainWindow):
                         self.save_settings()
                         logger.debug(f"Saved playlist_height_regular: {self._playlist_height_before_micro}")
             
-            # Set playlist height to 115 when entering micro mode (for when expanded in micro mode)
-            # Micro mode: always use fixed height of 115px (not resizable)
-            if hasattr(self, 'playlist_sidebar') and self.playlist_sidebar:
-                # Set the restore height to 115 (for when expanded in micro mode)
-                if hasattr(self.playlist_sidebar, '_restore_height'):
-                    self.playlist_sidebar._restore_height = 135
-                
-                # If playlist is expanded when entering micro mode, set it to 115
-                if self.playlist_sidebar.isVisible() and not self.playlist_sidebar.is_minimized and not self.playlist_detached:
-                    self.playlist_sidebar.setFixedHeight(135)
-                
-                # Force geometry updates to ensure container doesn't reserve extra space
-                self.playlist_sidebar.updateGeometry()
-                if hasattr(self, 'playlist_container') and self.playlist_container:
-                    self.playlist_container.updateGeometry()
+            # Set playlist height to 135 when entering micro mode (for when expanded in micro mode)
+            # Micro mode: always use fixed height of 135px (not resizable)
+            # Close and reopen playlist if it's visible to ensure proper state on first launch
+            # Only do this the first time entering micro mode (to fix first launch issue)
+            # Flag persists in settings so it only happens once ever, unless settings are cleared
+            playlist_was_visible = False
+            should_fix_playlist = not self.settings.get('micro_mode_playlist_fixed', False)
+            if should_fix_playlist and hasattr(self, 'playlist_sidebar') and self.playlist_sidebar and self.playlist_sidebar.isVisible() and not self.playlist_detached:
+                playlist_was_visible = True
+                # Close the playlist to reset its state
+                self.playlist_sidebar.close_playlist()
+                # Force layout update after closing
                 layout = self.centralWidget().layout()
                 if layout:
                     layout.update()
                     layout.activate()
                 QApplication.processEvents()
-                logger.debug(f"Set playlist restore height to 115 for micro mode (fixed, not resizable)")
-            # Resize after a brief delay to ensure CSS is applied
-            # The resize_to_micro_mode function will set fixed size after resizing
-            QTimer.singleShot(100, self.resize_to_micro_mode)
+                logger.debug("Closed playlist when entering micro mode (first time) - will reopen after delay")
+                # Mark that we've done this fix so it doesn't happen again (persists in settings)
+                self.settings['micro_mode_playlist_fixed'] = True
+                self.save_settings()
+            
+            # Set the restore height to 135 (for when expanded in micro mode)
+            if hasattr(self, 'playlist_sidebar') and self.playlist_sidebar:
+                if hasattr(self.playlist_sidebar, '_restore_height'):
+                    self.playlist_sidebar._restore_height = 135
+            
+            # Resize after a delay to ensure CSS is applied
+            # If coming from mini mode, use a longer delay to ensure the temporary resize completes
+            # If playlist was visible, reopen it after a delay to ensure proper state restoration
+            base_delay = 200 if is_coming_from_mini else 100
+            delay = base_delay
+            
+            if playlist_was_visible:
+                # Reopen playlist after a delay to ensure it's properly restored with minimized state
+                def reopen_playlist():
+                    if hasattr(self, 'playlist_sidebar') and self.playlist_sidebar:
+                        # Reopen the playlist - this will restore its state properly
+                        self.toggle_playlist()
+                        # Ensure it's minimized if it should be
+                        if self.playlist_sidebar.isVisible() and not self.playlist_sidebar.is_minimized and not self.playlist_detached:
+                            self.playlist_sidebar._toggle_minimize_state()
+                        # Force geometry updates
+                        self.playlist_sidebar.updateGeometry()
+                        if hasattr(self, 'playlist_container') and self.playlist_container:
+                            self.playlist_container.updateGeometry()
+                        layout = self.centralWidget().layout()
+                        if layout:
+                            layout.update()
+                            layout.activate()
+                        QApplication.processEvents()
+                        logger.debug(f"Reopened playlist in micro mode (minimized: {self.playlist_sidebar.is_minimized if self.playlist_sidebar.isVisible() else 'hidden'})")
+                        # Trigger resize after playlist is reopened
+                        QTimer.singleShot(100, self.resize_to_micro_mode)
+                    else:
+                        # Playlist doesn't exist yet, just trigger resize
+                        QTimer.singleShot(100, self.resize_to_micro_mode)
+                
+                QTimer.singleShot(150, reopen_playlist)
+            else:
+                QTimer.singleShot(delay, self.resize_to_micro_mode)
             self._was_micro_mode = True
     
     def _restore_regular_mode(self):
         """Restore regular mode size (immediate restore)"""
         try:
-            if self.mini_mode_original_size:
-                self.resize(self.mini_mode_original_size)
-                self.mini_mode_original_size = None
+            # Always use default regular mode size
+            self.resize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
             # Restore normal minimum height
             self.setMinimumHeight(WINDOW_MIN_HEIGHT)
         except Exception as e:
@@ -15094,11 +15704,8 @@ class PlayerWindow(QMainWindow):
             return
         
         # Ensure original size is set (needed for width)
-        if not self.mini_mode_original_size:
-            # Use current size or default
-            self.mini_mode_original_size = self.size()
-            if self.mini_mode_original_size.width() == 0 or self.mini_mode_original_size.height() == 0:
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
+        # Micro mode: always use WINDOW_DEFAULT_WIDTH for width
+        # No need to store original size
         
         # Get cover art dimensions via JavaScript
         # Fixed: Handle carousels with multiple images by finding the currently visible image
@@ -15288,7 +15895,7 @@ class PlayerWindow(QMainWindow):
                     # Window height is just cover art + padding + playlist title bar (tracklist scrolls below)
                     # Subtract 88px to reduce mini mode height, but never allow an unreasonably small window.
                     total_height = max(200, base_height - 88)
-                    original_width = self.mini_mode_original_size.width()
+                    original_width = WINDOW_DEFAULT_WIDTH
                     
                     try:
                         # Set flag to allow programmatic resize (prevents resizeEvent from blocking it)
@@ -15335,7 +15942,7 @@ class PlayerWindow(QMainWindow):
                         playlist_title_bar_height = 35
                     
                     total_height = max(200, base_height + window_padding + playlist_title_bar_height - 88)
-                    original_width = self.mini_mode_original_size.width()
+                    original_width = WINDOW_DEFAULT_WIDTH
                     try:
                         self._mini_mode_resizing = True
                         self.resize(original_width, total_height)
@@ -15350,7 +15957,7 @@ class PlayerWindow(QMainWindow):
                 # Use stored height as last resort
                 if self.mini_mode_cover_art_height:
                     try:
-                        original_width = self.mini_mode_original_size.width()
+                        original_width = WINDOW_DEFAULT_WIDTH
                         self.resize(original_width, self.mini_mode_cover_art_height)
                     except:
                         pass
@@ -15372,16 +15979,42 @@ class PlayerWindow(QMainWindow):
             logger.debug("resize_to_micro_mode: Already resizing, skipping")
             return
         
+        # Ensure constraints are properly cleared (in case we're coming from mini mode)
+        # Check if min and max are the same (fixed size) - if so, clear them
+        current_min = self.minimumSize()
+        current_max = self.maximumSize()
+        current_size = self.size()
+        is_stuck_at_mini_size = current_size.height() > 300  # Still at mini mode size
+        
+        if (current_min.width() == current_max.width() and current_min.height() == current_max.height()) or is_stuck_at_mini_size:
+            # Window has fixed size constraints or is still at mini mode size - clear them aggressively
+            logger.debug(f"Window appears stuck at mini mode size ({current_size.width()}x{current_size.height()}) or has fixed constraints - clearing aggressively")
+            
+            # Aggressively clear constraints
+            self.setMinimumSize(0, 0)
+            self.setMaximumSize(QSize(16777215, 16777215))
+            QApplication.processEvents()
+            
+            # Force a small resize to break the constraint if still at mini size
+            if is_stuck_at_mini_size:
+                temp_height = max(200, min(250, current_size.height() // 2))
+                self.resize(WINDOW_DEFAULT_WIDTH, temp_height)
+                QApplication.processEvents()
+                QApplication.processEvents()
+                logger.debug(f"Forced temporary resize to {temp_height}px to break mini mode constraint")
+            
+            # Set proper minimums
+            self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+            self.updateGeometry()
+            QApplication.processEvents()
+            logger.debug(f"Cleared fixed size constraints in resize_to_micro_mode")
+        
         # Set flag early to allow programmatic resize (prevents resizeEvent from blocking it)
         # This must be set BEFORE any resize operations, including JavaScript callbacks
         self._micro_mode_resizing = True
         
-        # Ensure original size is set (needed for width)
-        if not self.mini_mode_original_size:
-            # Use current size or default
-            self.mini_mode_original_size = self.size()
-            if self.mini_mode_original_size.width() == 0 or self.mini_mode_original_size.height() == 0:
-                self.mini_mode_original_size = QSize(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
+        # Micro mode: always use WINDOW_DEFAULT_WIDTH for width
+        # No need to store original size - always use default width
         
         # Get player dimensions via JavaScript - use multiple methods to find exact bottom
         js_code = """
@@ -15565,7 +16198,7 @@ class PlayerWindow(QMainWindow):
                 # Debug logging for height calculation
                 print(f"[DEBUG] resize_to_micro_mode: exact_bottom={exact_bottom}, window_padding={window_padding}, playlist_title_bar_height={playlist_title_bar_height}, total_height={total_height}, current_window_height={self.height()}")
                 logger.debug(f"resize_to_micro_mode: exact_bottom={exact_bottom}, window_padding={window_padding}, playlist_title_bar_height={playlist_title_bar_height}, total_height={total_height}, current_window_height={self.height()}")
-                original_width = self.mini_mode_original_size.width()
+                original_width = WINDOW_DEFAULT_WIDTH
                 
                 # Ensure we don't go below minimum
                 if total_height < window_padding + 50:
@@ -18434,13 +19067,12 @@ class PlayerWindow(QMainWindow):
     def toggle_always_on_top(self):
         """Toggle always on top"""
         self.always_on_top = not self.always_on_top
-        self.always_on_top_action.setChecked(self.always_on_top)
         # Update button state if it exists
         if hasattr(self, 'always_on_top_btn'):
             self.always_on_top_btn.setChecked(self.always_on_top)
-            # Update icon color based on checked state
+            # Update icon color based on checked state (light when off, blue when on)
             if HAS_QT_AWESOME:
-                icon_color = '#4a9eff' if self.always_on_top else '#e0e0e0'
+                icon_color = '#4a90e2' if self.always_on_top else '#a0a0a0'
                 icon = get_icon('thumbtack', color=icon_color)
                 if icon:
                     self.always_on_top_btn.setIcon(icon)
@@ -18470,6 +19102,19 @@ class PlayerWindow(QMainWindow):
         self.frameless_action.setChecked(self.frameless_mode)
         self.apply_frameless_mode()
         self.save_settings()
+    
+    def toggle_webview_scrollbar(self):
+        """Toggle webview scrollbar visibility"""
+        self.webview_scrollbar_visible = not self.webview_scrollbar_visible
+        self.settings['webview_scrollbar_visible'] = self.webview_scrollbar_visible
+        self.save_settings()
+        
+        # Update menu action state
+        if hasattr(self, 'webview_scrollbar_action'):
+            self.webview_scrollbar_action.setChecked(self.webview_scrollbar_visible)
+        
+        # Re-inject CSS to apply scrollbar changes
+        self.inject_css()
     
     def toggle_transparent_overlay(self):
         """Toggle transparent loading overlay"""
@@ -18880,19 +19525,24 @@ class PlayerWindow(QMainWindow):
         super().mousePressEvent(event)
         
         # Debug: Right-click to inspect widget at position (Ctrl+Right-click for more details)
+        # Only if debug methods exist (they may not be implemented)
         if event.button() == Qt.MouseButton.RightButton:
             modifiers = event.modifiers()
             if modifiers & Qt.KeyboardModifier.ShiftModifier:
                 # Inspect HTML element at position (since dark block shows HTML context menu)
-                self.inspect_html_element_at_position(event.position().toPoint())
-                return  # Don't process further if inspecting
+                if hasattr(self, 'inspect_html_element_at_position'):
+                    self.inspect_html_element_at_position(event.position().toPoint())
+                    return  # Don't process further if inspecting
             elif modifiers & Qt.KeyboardModifier.ControlModifier:
-                self.inspect_widget_at_position(event.globalPosition().toPoint())
-                return  # Don't process further if inspecting
+                if hasattr(self, 'inspect_widget_at_position'):
+                    self.inspect_widget_at_position(event.globalPosition().toPoint())
+                    return  # Don't process further if inspecting
             else:
                 # Simple right-click: just show basic info
-                self.quick_inspect_widget(event.position().toPoint())
-                return  # Don't process further if inspecting
+                if hasattr(self, 'quick_inspect_widget'):
+                    self.quick_inspect_widget(event.position().toPoint())
+                    return  # Don't process further if inspecting
+                # If debug methods don't exist, allow normal right-click behavior to proceed
         
         # Don't handle address bar hiding if we're dragging the playlist resize handle
         if hasattr(self, 'playlist_start_resize_y') and self.playlist_start_resize_y is not None:
@@ -19093,6 +19743,14 @@ class PlayerWindow(QMainWindow):
         if hasattr(self, 'playlist_sidebar') and self.playlist_sidebar and self.playlist_sidebar.isVisible():
             self.playlist_sidebar._toggle_minimize_state()
     
+    def _update_playlist_button_icon(self, is_visible):
+        """Update playlist button icon color based on visibility state"""
+        if hasattr(self, 'playlist_btn') and HAS_QT_AWESOME:
+            icon_color = '#4a90e2' if is_visible else '#a0a0a0'
+            icon = get_icon('mdi6.list-box', color=icon_color)
+            if icon:
+                self.playlist_btn.setIcon(icon)
+    
     def toggle_playlist(self):
         """Toggle playlist sidebar visibility"""
         # If playlist is detached, toggle detached window visibility instead
@@ -19106,9 +19764,10 @@ class PlayerWindow(QMainWindow):
                 self.detached_playlist_window.raise_()
                 self.detached_playlist_window.activateWindow()
                 new_visible = True
-            # Update button states
+            # Update button states and icon color
             if hasattr(self, 'playlist_btn'):
                 self.playlist_btn.setChecked(new_visible)
+                self._update_playlist_button_icon(new_visible)
             if hasattr(self, 'show_playlist_action'):
                 self.show_playlist_action.setChecked(new_visible)
             # Save state
@@ -19278,7 +19937,7 @@ class PlayerWindow(QMainWindow):
                         handle.setVisible(True)
                         handle.setFixedHeight(4)  # Restore height when shown
                     # Restore other state (height, minimized) but keep visible
-                    playlist_minimized = self.settings.get("playlist_minimized", False)
+                    playlist_minimized = self.settings.get("playlist_minimized", True)  # Default to minimized
                     playlist_height = self.settings.get("playlist_height", 250)
                     playlist_height = int(max(100, min(600, playlist_height)))
                     self.playlist_sidebar.setFixedHeight(playlist_height)
@@ -19286,9 +19945,10 @@ class PlayerWindow(QMainWindow):
                         self.playlist_sidebar._restore_height = playlist_height
                     if playlist_minimized != self.playlist_sidebar.is_minimized:
                         self.playlist_sidebar._toggle_minimize_state()
-                    # Update button state
+                    # Update button state and icon color
                     if hasattr(self, 'playlist_btn'):
                         self.playlist_btn.setChecked(True)
+                        self._update_playlist_button_icon(True)
                     if hasattr(self, 'show_playlist_action'):
                         self.show_playlist_action.setChecked(True)
                     # Update settings
@@ -19340,9 +20000,10 @@ class PlayerWindow(QMainWindow):
                     self.loading_overlay.setVisible(False)
                 # Always reset geometry when not loading to prevent taking up space
                 self.loading_overlay.setGeometry(0, 0, 0, 0)
-        # Update button state
+        # Update button state and icon color
         if hasattr(self, 'playlist_btn'):
             self.playlist_btn.setChecked(new_visible)
+            self._update_playlist_button_icon(new_visible)
         if hasattr(self, 'show_playlist_action'):
             self.show_playlist_action.setChecked(new_visible)
         
@@ -22331,6 +22992,21 @@ class PlayerWindow(QMainWindow):
                     # Ensure mini_mode_player_autohide exists (default to False for new installs)
                     if 'mini_mode_player_autohide' not in settings:
                         settings['mini_mode_player_autohide'] = False
+                    # Ensure autoplay_on_startup exists (default to True for new installs)
+                    if 'autoplay_on_startup' not in settings:
+                        settings['autoplay_on_startup'] = True
+                    # Ensure playlist_visible exists (default to True for new installs)
+                    if 'playlist_visible' not in settings:
+                        settings['playlist_visible'] = True
+                    # Ensure playlist_minimized exists (default to True for new installs)
+                    if 'playlist_minimized' not in settings:
+                        settings['playlist_minimized'] = True
+                    # Ensure repeat_mode exists (default to 1 for new installs - continuous)
+                    if 'repeat_mode' not in settings:
+                        settings['repeat_mode'] = 1
+                    # Ensure nano_always_on_top exists (default to True for new installs)
+                    if 'nano_always_on_top' not in settings:
+                        settings['nano_always_on_top'] = True
                     return settings
             except:
                 pass
@@ -22338,13 +23014,7 @@ class PlayerWindow(QMainWindow):
     
     def save_settings(self):
         """Save settings to file"""
-        # Save mini_mode_original_size if it exists
-        mini_mode_original_size_dict = None
-        if self.mini_mode_original_size:
-            mini_mode_original_size_dict = {
-                "width": self.mini_mode_original_size.width(),
-                "height": self.mini_mode_original_size.height()
-            }
+        # No longer storing mini_mode_original_size - each mode uses fixed defaults
         
         # Save current playlist file path (relative to Playlists directory)
         current_playlist_file = None
@@ -22377,7 +23047,6 @@ class PlayerWindow(QMainWindow):
             "always_on_top": self.always_on_top,
             "frameless_mode": self.frameless_mode,
             "mini_mode_state": self.mini_mode_state,
-            "mini_mode_original_size": mini_mode_original_size_dict,  # Save original size for mini/micro mode
             "autohide_address_bar": self.autohide_address_bar,
             "mini_mode_player_autohide": self.mini_mode_player_autohide,
             "mini_mode_player_hidden": self.mini_mode_player_hidden,
@@ -22423,6 +23092,28 @@ class PlayerWindow(QMainWindow):
         launcher_version = os.environ.get('BANDCAMP_PLAYER_LAUNCHER_VERSION')
         return launcher_version if launcher_version else None
     
+    def _show_about_dialog(self):
+        """Show About dialog"""
+        version_string = self._get_version_string()
+        about_text = f"""Bandcamp Player
+{version_string}
+
+A standalone mini player for Bandcamp built with PyQt6 and QWebEngineView.
+
+Features:
+• Mini, Micro, and Nano player modes
+• Playlist management with shuffle and repeat modes
+• Keyboard shortcuts and global hotkeys
+• Image viewer for album artwork
+• Auto-update system
+• Customizable UI and settings
+
+GitHub: https://github.com/kameryn1811/Bandcamp-Player
+
+This player provides a lightweight, desktop-friendly interface for streaming music from Bandcamp."""
+        
+        QMessageBox.about(self, "About Bandcamp Player", about_text)
+    
     def on_auto_check_updates_change(self):
         """Handle auto-check for updates checkbox change."""
         auto_check = self.auto_check_updates_action.isChecked()
@@ -22441,13 +23132,13 @@ class PlayerWindow(QMainWindow):
                     import requests
                     import re
                 except ImportError:
+                    error_msg = "The 'requests' library is required for update checking.\n\nPlease install it:\npython -m pip install requests"
+                    logger.error(error_msg)
                     if show_if_no_update:
                         QTimer.singleShot(0, lambda: QMessageBox.warning(
                             self,
                             "Update Check Failed",
-                            "The 'requests' library is required for update checking.\n\n"
-                            "Please install it:\n"
-                            "python -m pip install requests"
+                            error_msg
                         ))
                     return
                 
@@ -22457,26 +23148,35 @@ class PlayerWindow(QMainWindow):
                 
                 # Get version directly from main branch file (not from releases)
                 download_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/main/bandcamp_pl_gui.py"
+                logger.debug(f"Checking for updates from: {download_url}")
+                
                 response = requests.get(download_url, timeout=10)
                 response.raise_for_status()
                 file_content = response.text
                 
+                logger.debug(f"Fetched file content, length: {len(file_content)} characters")
+                
                 # Extract version from the file
                 version_match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', file_content)
                 if not version_match:
+                    error_msg = "Could not find version number in main branch file."
+                    logger.error(error_msg)
                     if show_if_no_update:
                         QTimer.singleShot(0, lambda: QMessageBox.warning(
                             self,
                             "Update Check Failed",
-                            "Could not find version number in main branch file."
+                            error_msg
                         ))
                     return
                 
                 latest_version = version_match.group(1)
                 current_version = __version__
                 
+                logger.info(f"Version check: Current={current_version}, Latest={latest_version}")
+                
                 # Compare versions
                 comparison_result = self._compare_versions(latest_version, current_version)
+                logger.debug(f"Version comparison result: {comparison_result} (1=newer, 0=same, -1=older)")
                 
                 if comparison_result > 0:
                     # Update available - show popup
@@ -22485,31 +23185,54 @@ class PlayerWindow(QMainWindow):
                     # Try to fetch commit message from GitHub API
                     release_notes = self._fetch_commit_message(repo_owner, repo_name, latest_version)
                     
-                    # Show update dialog
-                    QTimer.singleShot(0, lambda: self._show_update_popup(
-                        current_version, latest_version, download_url, release_notes
-                    ))
-                else:
+                    # Show update dialog - use QTimer to ensure it runs on main thread
+                    # Store values as instance variables to avoid closure issues
+                    self._pending_update_info = {
+                        'current_version': current_version,
+                        'latest_version': latest_version,
+                        'download_url': download_url,
+                        'release_notes': release_notes
+                    }
+                    QTimer.singleShot(0, self._show_pending_update_popup)
+                elif comparison_result == 0:
+                    # Versions are the same - already up to date
+                    logger.info(f"Already up to date (current: v{current_version}, latest: v{latest_version})")
                     if show_if_no_update:
                         # User manually checked, show "up to date" message
-                        QTimer.singleShot(0, lambda: QMessageBox.information(
+                        # Store values to avoid closure issues
+                        msg_current_version = current_version
+                        QTimer.singleShot(0, lambda v=msg_current_version: QMessageBox.information(
                             self,
                             "Update Check",
-                            f"You're running the latest version (v{current_version})"
+                            f"You're running the latest version (v{v})\n\nNo updates available."
+                        ))
+                else:
+                    # Current version is newer than latest (shouldn't happen, but handle gracefully)
+                    logger.warning(f"Current version ({current_version}) is newer than latest ({latest_version})")
+                    if show_if_no_update:
+                        msg_current_version = current_version
+                        QTimer.singleShot(0, lambda v=msg_current_version: QMessageBox.information(
+                            self,
+                            "Update Check",
+                            f"You're running version v{v}\n\nThis appears to be a development or pre-release version."
                         ))
             except requests.exceptions.RequestException as e:
+                error_msg = f"Could not check for updates.\n\nError: {str(e)}\n\nPlease check your internet connection."
+                logger.error(f"Update check failed (network error): {e}", exc_info=True)
                 if show_if_no_update:
                     QTimer.singleShot(0, lambda: QMessageBox.warning(
                         self,
                         "Update Check Failed",
-                        f"Could not check for updates.\n\nError: {str(e)}\n\nPlease check your internet connection."
+                        error_msg
                     ))
             except Exception as e:
+                error_msg = f"An error occurred while checking for updates.\n\nError: {str(e)}"
+                logger.error(f"Update check failed (unexpected error): {e}", exc_info=True)
                 if show_if_no_update:
                     QTimer.singleShot(0, lambda: QMessageBox.warning(
                         self,
                         "Update Check Failed",
-                        f"An error occurred while checking for updates.\n\nError: {str(e)}"
+                        error_msg
                     ))
         
         # Run in background thread to avoid blocking UI
@@ -22581,6 +23304,19 @@ class PlayerWindow(QMainWindow):
             logger.debug(f"Could not fetch commit message: {str(e)}")
             return ""
     
+    def _show_pending_update_popup(self):
+        """Show pending update popup (called from main thread via QTimer)."""
+        if hasattr(self, '_pending_update_info') and self._pending_update_info:
+            info = self._pending_update_info
+            self._show_update_popup(
+                info.get('current_version'),
+                info.get('latest_version'),
+                info.get('download_url'),
+                info.get('release_notes', '')
+            )
+            # Clear pending info
+            self._pending_update_info = None
+    
     def _show_update_popup(self, current_version, latest_version, download_url, release_notes=""):
         """Show update available popup."""
         if not current_version or not latest_version:
@@ -22636,14 +23372,35 @@ class PlayerWindow(QMainWindow):
         )
         
         if response == QMessageBox.StandardButton.Yes:
-            # In launcher mode, launcher handles updates
-            # For standalone mode, we could download here, but launcher mode is recommended
+            # User approved update - trigger download
             if os.environ.get('BANDCAMP_PLAYER_LAUNCHER') == '1':
-                QMessageBox.information(
-                    self,
-                    "Update",
-                    "The launcher will handle the update. Please restart the application to apply the update."
-                )
+                # In launcher mode, create flag file to trigger launcher download
+                try:
+                    launcher_dir = Path(__file__).parent
+                    flag_file = launcher_dir / "update_download_flag.json"
+                    flag_data = {
+                        "download": True,
+                        "version": latest_version,
+                        "download_url": download_url,
+                        "timestamp": time.time()
+                    }
+                    with open(flag_file, 'w', encoding='utf-8') as f:
+                        json.dump(flag_data, f)
+                    
+                    QMessageBox.information(
+                        self,
+                        "Update",
+                        f"Update to v{latest_version} will be downloaded and applied on next restart.\n\n"
+                        "Please restart the application to complete the update."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to trigger update download: {e}")
+                    QMessageBox.warning(
+                        self,
+                        "Update Error",
+                        f"Failed to trigger update download:\n{str(e)}\n\n"
+                        "Please download manually from GitHub."
+                    )
             else:
                 QMessageBox.information(
                     self,
@@ -22651,6 +23408,9 @@ class PlayerWindow(QMainWindow):
                     "Please download the latest version from GitHub:\n\n"
                     f"https://github.com/kameryn1811/Bandcamp-Player"
                 )
+        else:
+            # User declined update - do nothing
+            logger.info(f"User declined update to v{latest_version}")
     
     def extract_artist_album_from_url(self, url):
         """Extract Artist - Album format from Bandcamp URL
@@ -22684,7 +23444,22 @@ class PlayerWindow(QMainWindow):
                     if len(words) > 1:
                         artist = " ".join(word.capitalize() for word in words)
                     else:
-                        artist = subdomain.capitalize()
+                        # Single word (all lowercase or no camelCase) - try to split on common word endings
+                        # Common word endings that might indicate a word boundary
+                        common_endings = ['pony', 'ponies', 'music', 'records', 'label', 'band', 'group', 'crew', 'team', 'sound', 'audio', 'tunes', 'tracks']
+                        subdomain_lower = subdomain.lower()
+                        for ending in common_endings:
+                            if subdomain_lower.endswith(ending) and len(subdomain_lower) > len(ending):
+                                # Split before the ending
+                                prefix = subdomain_lower[:-len(ending)]
+                                if len(prefix) > 0:
+                                    # Capitalize both parts
+                                    artist = f"{prefix.capitalize()} {ending.capitalize()}"
+                                    break
+                        
+                        # Final fallback: just capitalize the first letter
+                        if not artist:
+                            artist = subdomain.capitalize()
             
             if not artist:
                 return None
@@ -23252,7 +24027,7 @@ class NanoPlayerWindow(QDialog):
         # Frameless window (no rounded corners as requested)
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
         # Always-on-top will be controlled by pin button (independent of main window)
-        self.nano_always_on_top = parent_window.settings.get("nano_always_on_top", False)
+        self.nano_always_on_top = parent_window.settings.get("nano_always_on_top", True)  # Default to enabled
         if self.nano_always_on_top:
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
@@ -24418,9 +25193,39 @@ class NanoPlayerWindow(QDialog):
                 # Handle dragging
                 if self._drag_position is not None and event.buttons() == Qt.MouseButton.LeftButton:
                     new_pos = event.globalPosition().toPoint() - self._drag_position
-                    self.move(new_pos)
-                    # Check for snapping
-                    self._check_snap_to_edges()
+                    
+                    # If docked, check if user is trying to drag away (undock)
+                    if self._docked_edge and self._docked_y_position is not None:
+                        screen = QApplication.primaryScreen()
+                        if screen:
+                            screen_geometry = screen.availableGeometry()
+                            # Check if intended Y position is far enough from edge to undock
+                            should_undock = False
+                            if self._docked_edge == 'top':
+                                if abs(new_pos.y() - screen_geometry.top()) > self._snap_threshold * 2:
+                                    should_undock = True
+                            elif self._docked_edge == 'bottom':
+                                window_height = self.height()
+                                if abs(new_pos.y() + window_height - screen_geometry.bottom()) > self._snap_threshold * 2:
+                                    should_undock = True
+                            
+                            if should_undock:
+                                # Undock and allow normal movement
+                                self._undock()
+                                self.move(new_pos)
+                                # Check for snapping (which may dock again)
+                                self._check_snap_to_edges()
+                            else:
+                                # Still docked - constrain to horizontal movement only
+                                self.move(new_pos.x(), self._docked_y_position)
+                        else:
+                            # No screen info - just constrain to horizontal
+                            self.move(new_pos.x(), self._docked_y_position)
+                    else:
+                        # Normal dragging - allow both X and Y movement
+                        self.move(new_pos)
+                        # Check for snapping (which may dock)
+                        self._check_snap_to_edges()
                     return True
             elif event.type() == QEvent.Type.MouseButtonRelease:
                 if event.button() == Qt.MouseButton.LeftButton:
@@ -26171,20 +26976,60 @@ class NanoPlayerWindow(QDialog):
                 
                 # Fall back to URL parsing if no stored metadata
                 if not display_text:
-                    # Try to extract artist/album from URL path
-                    try:
-                        from urllib.parse import urlparse
-                        parsed = urlparse(url)
-                        path_parts = [p for p in parsed.path.strip('/').split('/') if p]
-                        if len(path_parts) >= 2:
-                            # Format: artist/album
-                            display_text = f"{path_parts[0].replace('-', ' ').title()} - {path_parts[1].replace('-', ' ').title()}"
-                        elif len(path_parts) == 1:
-                            display_text = path_parts[0].replace('-', ' ').title()
-                        else:
+                    # Use the main window's extract_artist_album_from_url method which correctly
+                    # extracts artist from subdomain and album/track from path
+                    if self.parent_window and hasattr(self.parent_window, 'extract_artist_album_from_url'):
+                        display_text = self.parent_window.extract_artist_album_from_url(url)
+                    
+                    # Final fallback if extraction failed
+                    if not display_text:
+                        try:
+                            from urllib.parse import urlparse
+                            parsed = urlparse(url)
+                            path_parts = [p for p in parsed.path.strip('/').split('/') if p]
+                            if len(path_parts) >= 2 and path_parts[0] in ['album', 'track']:
+                                # Format: album/album-name or track/track-name
+                                # Extract artist from subdomain
+                                hostname = parsed.hostname or ""
+                                artist = None
+                                if ".bandcamp.com" in hostname.lower():
+                                    subdomain = hostname.lower().replace(".bandcamp.com", "")
+                                    if "-" in subdomain:
+                                        artist = " ".join(word.capitalize() for word in subdomain.split("-"))
+                                    else:
+                                        import re
+                                        words = re.findall(r'[a-z]+|[A-Z][a-z]*', subdomain)
+                                        if len(words) > 1:
+                                            artist = " ".join(word.capitalize() for word in words)
+                                        else:
+                                            # Single word (all lowercase or no camelCase) - try to split on common word endings
+                                            common_endings = ['pony', 'ponies', 'music', 'records', 'label', 'band', 'group', 'crew', 'team', 'sound', 'audio', 'tunes', 'tracks']
+                                            subdomain_lower = subdomain.lower()
+                                            for ending in common_endings:
+                                                if subdomain_lower.endswith(ending) and len(subdomain_lower) > len(ending):
+                                                    # Split before the ending
+                                                    prefix = subdomain_lower[:-len(ending)]
+                                                    if len(prefix) > 0:
+                                                        # Capitalize both parts
+                                                        artist = f"{prefix.capitalize()} {ending.capitalize()}"
+                                                        break
+                                            
+                                            # Final fallback: just capitalize the first letter
+                                            if not artist:
+                                                artist = subdomain.capitalize()
+                                
+                                name = path_parts[1]
+                                name = " ".join(word.capitalize() for word in name.split("-"))
+                                if artist:
+                                    display_text = f"{artist} - {name}"
+                                else:
+                                    display_text = name
+                            elif len(path_parts) == 1:
+                                display_text = path_parts[0].replace('-', ' ').title()
+                            else:
+                                display_text = url.split('/')[-1] if '/' in url else url
+                        except Exception:
                             display_text = url.split('/')[-1] if '/' in url else url
-                    except Exception:
-                        display_text = url.split('/')[-1] if '/' in url else url
                 
                 item = QListWidgetItem(display_text)
                 item.setData(Qt.ItemDataRole.UserRole, url)
@@ -27337,8 +28182,11 @@ if __name__ == "__main__":
     # CRITICAL: Allocate console FIRST on Windows (before any other operations)
     # This is essential for Windows 10 when double-clicking .py files
     # Double-clicking may use pythonw.exe (no console), causing silent failures
+    # BUT: Skip console allocation in launcher mode (console is intentionally freed)
     _console_allocated = False
-    if sys.platform == "win32":
+    launcher_mode = os.environ.get('BANDCAMP_PLAYER_LAUNCHER') == '1'
+    
+    if sys.platform == "win32" and not launcher_mode:
         try:
             import ctypes
             kernel32 = ctypes.windll.kernel32

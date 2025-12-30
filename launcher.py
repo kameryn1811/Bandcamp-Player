@@ -41,6 +41,7 @@ SCRIPT_PATH = LAUNCHER_DIR / SCRIPT_NAME
 SETTINGS_FILE = LAUNCHER_DIR / "launcher_settings.json"
 GUI_SETTINGS_FILE = LAUNCHER_DIR / "settings.json"  # GUI's settings file
 UPDATE_STATUS_FILE = LAUNCHER_DIR / "update_status.json"
+UPDATE_DOWNLOAD_FLAG = LAUNCHER_DIR / "update_download_flag.json"  # Flag file to trigger download from GUI
 LAUNCHER_EXE_PATH = Path(sys.executable) if hasattr(sys, 'frozen') else None
 LAUNCHER_UPDATE_TEMP = Path(tempfile.gettempdir()) / "BandcampPlayer_new.exe"
 
@@ -354,6 +355,19 @@ def run_script_directly():
         return False
     
     try:
+        # Hide console window immediately if running as frozen exe (launcher mode)
+        # This must happen BEFORE launching the script to prevent console flash
+        if hasattr(sys, 'frozen') and sys.platform == 'win32':
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                hwnd = kernel32.GetConsoleWindow()
+                if hwnd:
+                    # Free the console completely (removes it entirely)
+                    kernel32.FreeConsole()
+            except Exception:
+                pass  # Silently fail if console hiding doesn't work
+        
         # Set environment variable to indicate launcher mode
         os.environ['BANDCAMP_PLAYER_LAUNCHER'] = '1'
         # Set launcher version in environment variable for GUI to read
@@ -821,8 +835,25 @@ def cleanup_old_exe():
     return False
 
 
+# Installing dialog removed - was causing blank window issues
+# Extraction now happens silently before GUI is created
+
+
 def main():
     """Main launcher entry point."""
+    # Hide console window immediately if running as frozen exe
+    # This must happen FIRST, before any other operations
+    if hasattr(sys, 'frozen') and sys.platform == 'win32':
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            hwnd = kernel32.GetConsoleWindow()
+            if hwnd:
+                # Free the console completely (removes it entirely)
+                kernel32.FreeConsole()
+        except Exception:
+            pass  # Silently fail if console hiding doesn't work
+    
     # Clean up old exe from previous update (if any)
     was_updated = cleanup_old_exe()
     
@@ -865,34 +896,100 @@ def main():
                         shutil.copy2(bundled_icon, icon_path)
                     except Exception:
                         pass
+            
+            # Extract bandcamp_player_hotkeys.ahk from bundle if it doesn't exist
+            ahk_path = LAUNCHER_DIR / "bandcamp_player_hotkeys.ahk"
+            if not ahk_path.exists():
+                bundled_ahk = bundle_dir / "bandcamp_player_hotkeys.ahk"
+                if bundled_ahk.exists():
+                    try:
+                        shutil.copy2(bundled_ahk, ahk_path)
+                    except Exception:
+                        pass
+            
+            # Extract icon-hotkeys.ico from bundle if it doesn't exist
+            hotkeys_icon_path = LAUNCHER_DIR / "icon-hotkeys.ico"
+            if not hotkeys_icon_path.exists():
+                bundled_hotkeys_icon = bundle_dir / "icon-hotkeys.ico"
+                if bundled_hotkeys_icon.exists():
+                    try:
+                        shutil.copy2(bundled_hotkeys_icon, hotkeys_icon_path)
+                    except Exception:
+                        pass
     
     # Extract files in background thread (non-blocking)
     extraction_thread = threading.Thread(target=extract_bundled_files, daemon=True)
     extraction_thread.start()
     
     # If script doesn't exist, extract immediately (required for app to run)
+    # Extract silently - no dialog to avoid blank window issues
     if not SCRIPT_PATH.exists() and BUNDLED_SCRIPT and BUNDLED_SCRIPT.exists():
         try:
+            # Extract script (this can take a moment on first run)
             shutil.copy2(BUNDLED_SCRIPT, SCRIPT_PATH)
-        except Exception:
-            pass
+        except Exception as e:
+            # Show error if extraction fails (only if GUI is available)
+            try:
+                import tkinter.messagebox as messagebox
+                messagebox.showerror(
+                    "Extraction Error",
+                    f"Failed to extract {SCRIPT_NAME}:\n{str(e)}\n\nPlease try again."
+                )
+            except:
+                pass
+            sys.exit(1)
     
     # Launch the script immediately (using bundled version if available)
     # Check for updates in background AFTER launching (non-blocking, delayed)
     # Only check if auto-check updates is enabled in settings
+    # Note: Script updates are now handled by the GUI after URL loads to avoid
+    # interfering with JavaScript initialization. Only launcher updates are checked here.
     def check_updates_background():
-        # Delay to let app start first
-        time.sleep(3)
+        # Delay significantly to avoid interfering with JavaScript initialization
+        # On first launch, JavaScript injection happens at 2s, 4s, 6s, 8s after page load
+        # We delay until well after this period to ensure no interference
+        time.sleep(15)
         
         # Check if auto-update is enabled in GUI settings
         auto_check_enabled = get_auto_check_updates_setting()
         if not auto_check_enabled:
             return
         
-        # Check for script updates silently
-        check_and_update_script(silent=True)
+        # Script updates are now handled by the GUI after a URL loads
+        # (see bandcamp_pl_gui.py on_page_loaded method)
+        # This ensures the update dialog doesn't interfere with JavaScript initialization
+        
         # Check for launcher updates (show dialog if update available)
+        # This is delayed to avoid interfering with app initialization
         check_launcher_update(silent=False)
+    
+    def check_download_flag():
+        """Check if GUI requested download and process it."""
+        if UPDATE_DOWNLOAD_FLAG.exists():
+            try:
+                with open(UPDATE_DOWNLOAD_FLAG, 'r', encoding='utf-8') as f:
+                    flag_data = json.load(f)
+                    if flag_data.get('download', False):
+                        # User approved download - proceed with update
+                        check_and_update_script(silent=True)
+                    # Clean up flag file
+                    UPDATE_DOWNLOAD_FLAG.unlink()
+            except Exception:
+                # If flag file is invalid, just delete it
+                try:
+                    UPDATE_DOWNLOAD_FLAG.unlink()
+                except:
+                    pass
+    
+    # Check for download flag periodically (every 2 seconds)
+    def monitor_download_flag():
+        while True:
+            time.sleep(2)
+            check_download_flag()
+    
+    # Start flag monitor in background
+    flag_monitor_thread = threading.Thread(target=monitor_download_flag, daemon=True)
+    flag_monitor_thread.start()
     
     # Start update check in background (non-blocking)
     auto_check_enabled = get_auto_check_updates_setting()

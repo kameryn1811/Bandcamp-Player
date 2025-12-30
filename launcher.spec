@@ -13,6 +13,8 @@ a = Analysis(
     datas=[
         ('bandcamp_pl_gui.py', '.'),  # Bundle the script as a fallback (will be updated from GitHub)
         ('icon.ico', '.'),  # Bundle icon.ico (will be extracted to launcher directory on first run)
+        ('bandcamp_player_hotkeys.ahk', '.'),  # Bundle AutoHotkey script (will be extracted to launcher directory on first run)
+        ('icon-hotkeys.ico', '.'),  # Bundle AutoHotkey icon (will be extracted to launcher directory on first run)
     ],
     hiddenimports=[
         'requests',  # Required for GitHub API calls
@@ -31,6 +33,9 @@ a = Analysis(
         'urllib.error',
         'tkinter',
         'tkinter.messagebox',
+        # PyQt6 modules required by bandcamp_pl_gui.py
+        # Even though launcher.py doesn't import them, the script does
+        # PyInstaller needs these to bundle PyQt6 with the launcher
         'PyQt6',
         'PyQt6.QtWidgets',
         'PyQt6.QtCore',
@@ -43,11 +48,22 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        # Exclude unnecessary modules to reduce size and scan time
+        'matplotlib',
+        'numpy',
+        'scipy',
+        'pandas',
+        'PIL._tkinter_finder',  # Not needed for launcher
+        'test',
+        'unittest',
+        'pydoc',
+        'doctest',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
-    noarchive=False,
+    noarchive=False,  # Keep as False - onefile mode extracts faster than noarchive=True
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -64,8 +80,13 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,  # Compress executable (reduces size)
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    upx_exclude=[
+        # Don't compress PyQt6-WebEngine binaries (they're already optimized and compression slows extraction)
+        'PyQt6',
+        'QtWebEngine',
+        'Qt6WebEngine',
+    ],
+    runtime_tmpdir=None,  # Use default temp dir (faster than custom location for antivirus)
     console=False,  # Hide console window - launch silently
     disable_windowed_traceback=False,
     argv_emulation=False,
