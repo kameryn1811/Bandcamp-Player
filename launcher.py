@@ -228,7 +228,8 @@ def get_latest_launcher_version():
     """Get latest launcher.exe version from launcher_manifest.json on GitHub.
     
     Returns:
-        Tuple of (version_string, download_url, file_size) or (None, None, None) if error
+        Tuple of (version_string, release_url, file_size) or (None, None, None) if error
+        Note: release_url is the GitHub release page URL, not a direct download URL
     """
     try:
         import requests
@@ -241,18 +242,18 @@ def get_latest_launcher_version():
         manifest = json.loads(response.text)
         
         version = manifest.get('version')
-        download_url = manifest.get('download_url')
+        # Use release_url if available, otherwise fall back to download_url
+        release_url = manifest.get('release_url')
+        if not release_url:
+            # Fallback to download_url for backwards compatibility
+            release_url = manifest.get('download_url')
         file_size = manifest.get('file_size', 0)
         
-        if not version or not download_url:
-            print("Warning: Invalid launcher manifest (missing version or download_url)")
+        if not version or not release_url:
+            print("Warning: Invalid launcher manifest (missing version or release_url)")
             return None, None, None
         
-        # Ensure download URL has dl=1 for direct download
-        if 'dl=0' in download_url:
-            download_url = download_url.replace('dl=0', 'dl=1')
-        
-        return version, download_url, file_size
+        return version, release_url, file_size
     except ImportError:
         print("Warning: 'requests' library not found. Launcher update checking disabled.")
         return None, None, None
@@ -632,11 +633,15 @@ def apply_launcher_update(show_dialog=True):
 def check_launcher_update(silent=False):
     """Check for launcher.exe updates.
     
+    When an update is available, opens the browser to the GitHub release page
+    where the user can manually download and replace the .exe file.
+    The .exe is large (~200MB), so manual download is preferred.
+    
     Args:
         silent: If True, don't show dialogs (for background check)
     
     Returns:
-        True if update available and downloaded, False otherwise
+        False (always returns False since we no longer auto-download)
     """
     if not hasattr(sys, 'frozen'):
         # Not running as exe, skip launcher update check
@@ -644,9 +649,9 @@ def check_launcher_update(silent=False):
     
     try:
         current_version = get_launcher_version()
-        latest_version, download_url, file_size = get_latest_launcher_version()
+        latest_version, release_url, file_size = get_latest_launcher_version()
         
-        if not latest_version or not download_url:
+        if not latest_version or not release_url:
             if not silent:
                 write_update_status(f"Could not check for launcher updates (version: {current_version})")
             return False
@@ -656,11 +661,11 @@ def check_launcher_update(silent=False):
         if comparison > 0:
             # Update available
             if not silent:
-                # Show update dialog (similar to downloader)
-                show_launcher_update_dialog(current_version, latest_version, download_url, file_size)
-            else:
-                # Silent mode: just download
-                return download_launcher_update(download_url, latest_version, file_size)
+                # Show update dialog that opens browser to release page
+                show_launcher_update_dialog(current_version, latest_version, release_url)
+            # Note: We no longer auto-download the .exe (it's ~200MB)
+            # User must manually download and replace it
+            return False
         elif not silent:
             write_update_status(f"Launcher is up to date (v{current_version})")
         
@@ -672,117 +677,44 @@ def check_launcher_update(silent=False):
         return False
 
 
-def show_launcher_update_dialog(current_version, latest_version, download_url, file_size=0):
-    """Show dialog for launcher update, download with progress, then prompt for restart."""
+def show_launcher_update_dialog(current_version, latest_version, release_url):
+    """Show dialog for launcher update and open browser to release page.
+    
+    Args:
+        current_version: Current launcher version
+        latest_version: Latest available version
+        release_url: URL to GitHub release page where user can download the .exe
+    """
     try:
         import tkinter.messagebox as messagebox
-        import tkinter as tk
+        import webbrowser
         
-        size_info = ""
-        if file_size > 0:
-            size_mb = file_size / (1024 * 1024)
-            size_info = f"\nFile size: {size_mb:.1f} MB"
-        
-        # Step 1: Ask if user wants to update
         message = (
             f"A new launcher version is available!\n\n"
             f"Current version: v{current_version}\n"
-            f"Latest version: v{latest_version}{size_info}\n\n"
-            f"Would you like to download and install the update?\n\n"
-            f"The application will close and restart automatically after the update."
+            f"Latest version: v{latest_version}\n\n"
+            f"The launcher file is large (~200MB), so please download it manually from GitHub.\n\n"
+            f"Would you like to open the release page in your browser now?\n\n"
+            f"After downloading, simply replace the old BandcampPlayer.exe with the new one."
         )
         
         response = messagebox.askyesno("Launcher Update Available", message)
         
-        if not response:
-            # User declined
-            manual_response = messagebox.askyesno(
-                "Manual Update",
-                "Would you like to open the download page in your browser instead?"
-            )
-            if manual_response:
-                import webbrowser
-                webbrowser.open(download_url)
-            return
-        
-        # Step 2: Download with progress feedback
-        write_update_status(f"Downloading launcher v{latest_version}...", latest_version)
-        
-        # Show downloading dialog
-        download_dialog = tk.Toplevel()
-        download_dialog.title("Downloading Update")
-        download_dialog.geometry("400x150")
-        download_dialog.transient()
-        download_dialog.grab_set()
-        
-        # Center the dialog
-        download_dialog.update_idletasks()
-        x = (download_dialog.winfo_screenwidth() // 2) - (download_dialog.winfo_width() // 2)
-        y = (download_dialog.winfo_screenheight() // 2) - (download_dialog.winfo_height() // 2)
-        download_dialog.geometry(f"+{x}+{y}")
-        
-        label = tk.Label(
-            download_dialog,
-            text=f"Downloading launcher v{latest_version}...\n\nPlease wait...",
-            font=("Segoe UI", 10),
-            justify=tk.CENTER
-        )
-        label.pack(pady=20)
-        
-        progress_label = tk.Label(
-            download_dialog,
-            text="",
-            font=("Segoe UI", 9),
-            fg="gray"
-        )
-        progress_label.pack()
-        
-        download_dialog.update()
-        
-        # Download in background thread
-        def download_thread():
+        if response:
+            # Open browser to release page
             try:
-                success = download_launcher_update_with_progress(download_url, latest_version, file_size, progress_label, download_dialog)
-                download_dialog.after(0, lambda: download_complete(success, latest_version))
+                webbrowser.open(release_url)
+                write_update_status(f"Opened release page for launcher v{latest_version}")
             except Exception as e:
-                download_dialog.after(0, lambda: download_complete(False, latest_version, str(e)))
-        
-        threading.Thread(target=download_thread, daemon=True).start()
-        
-        def download_complete(success, version, error_msg=None):
-            download_dialog.destroy()
-            
-            if not success:
-                if error_msg:
-                    write_update_status(f"Download failed: {error_msg}")
                 messagebox.showerror(
-                    "Download Failed",
-                    f"Failed to download launcher update.\n\n{error_msg or 'Please try again later or download manually.'}"
+                    "Error",
+                    f"Could not open browser.\n\nPlease visit:\n{release_url}\n\nmanually."
                 )
-                return
-            
-            # Step 3: Ask if ready to apply update
-            restart_msg = (
-                f"Launcher v{version} has been downloaded successfully!\n\n"
-                f"The application will now close to apply the update.\n\n"
-                f"Please relaunch the application after it closes to finish the update.\n\n"
-                f"Ready to apply the update now?"
-            )
-            
-            restart_response = messagebox.askyesno("Update Ready", restart_msg)
-            
-            if restart_response:
-                write_update_status("Applying update...")
-                apply_launcher_update(show_dialog=False)
-            else:
-                write_update_status("Update will be applied on next launch.")
-                messagebox.showinfo(
-                    "Update Pending",
-                    "The update will be applied automatically the next time you start the application."
-                )
-        
+                write_update_status(f"Error opening browser: {e}")
+        else:
+            write_update_status(f"Launcher update available (v{latest_version}) - user declined")
     except Exception as e:
-        write_update_status(f"Error in update dialog: {e}")
+        write_update_status(f"Error showing launcher update dialog: {e}")
 
 
 def download_launcher_update_with_progress(download_url, expected_version, expected_size, progress_label, dialog):
