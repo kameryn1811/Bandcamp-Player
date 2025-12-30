@@ -4,7 +4,7 @@ Self-contained launcher that bundles Python and auto-updates the main script.
 """
 
 # Launcher version (update this when releasing a new launcher.exe)
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 import sys
 import os
@@ -44,6 +44,120 @@ UPDATE_STATUS_FILE = LAUNCHER_DIR / "update_status.json"
 UPDATE_DOWNLOAD_FLAG = LAUNCHER_DIR / "update_download_flag.json"  # Flag file to trigger download from GUI
 LAUNCHER_EXE_PATH = Path(sys.executable) if hasattr(sys, 'frozen') else None
 LAUNCHER_UPDATE_TEMP = Path(tempfile.gettempdir()) / "BandcampPlayer_new.exe"
+
+
+def show_error_dialog(title, message, details=None):
+    """Show an error dialog, trying multiple methods to ensure it's visible.
+    
+    Args:
+        title: Dialog title
+        message: Main error message
+        details: Optional detailed error information (traceback, etc.)
+    """
+    # Try tkinter first (most reliable)
+    try:
+        import tkinter.messagebox as messagebox
+        import tkinter as tk
+        
+        # Create root window if it doesn't exist (hidden)
+        try:
+            root = tk._default_root
+            if root is None:
+                root = tk.Tk()
+                root.withdraw()  # Hide the root window
+        except:
+            root = tk.Tk()
+            root.withdraw()
+        
+        # Combine message and details if provided
+        full_message = message
+        if details:
+            full_message = f"{message}\n\nDetails:\n{details}"
+        
+        messagebox.showerror(title, full_message)
+        return
+    except Exception:
+        pass  # Fall through to next method
+    
+    # Try Windows MessageBox as fallback
+    try:
+        import ctypes
+        from ctypes import wintypes
+        
+        # Combine message and details if provided
+        full_message = message
+        if details:
+            full_message = f"{message}\n\nDetails:\n{details}"
+        
+        # Truncate if too long (Windows MessageBox has limits)
+        if len(full_message) > 1000:
+            full_message = full_message[:1000] + "\n\n... (truncated)"
+        
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            full_message,
+            title,
+            0x10 | 0x0  # MB_ICONERROR | MB_OK
+        )
+        return
+    except Exception:
+        pass  # Fall through to last resort
+    
+    # Last resort: try to write to a log file
+    try:
+        log_file = LAUNCHER_DIR / "crash_log.txt"
+        with open(log_file, 'a', encoding='utf-8') as f:
+            from datetime import datetime
+            f.write(f"\n{'='*60}\n")
+            f.write(f"Crash at {datetime.now()}\n")
+            f.write(f"Title: {title}\n")
+            f.write(f"Message: {message}\n")
+            if details:
+                f.write(f"Details:\n{details}\n")
+            f.write(f"{'='*60}\n")
+    except Exception:
+        pass  # If even logging fails, we're out of options
+
+
+def setup_global_exception_handler():
+    """Set up global exception handler to catch unhandled exceptions."""
+    def exception_handler(exc_type, exc_value, exc_traceback):
+        """Handle unhandled exceptions by showing error dialog."""
+        if exc_type is KeyboardInterrupt:
+            # Don't show dialog for user-initiated interrupts
+            sys.exit(0)
+        
+        try:
+            import traceback
+            error_msg = f"An unexpected error occurred:\n\n{exc_type.__name__}: {exc_value}"
+            traceback_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            
+            show_error_dialog(
+                "Bandcamp Player - Error",
+                error_msg,
+                traceback_str
+            )
+        except Exception:
+            # If showing error dialog fails, at least try to log it
+            try:
+                log_file = LAUNCHER_DIR / "crash_log.txt"
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    from datetime import datetime
+                    import traceback
+                    f.write(f"\n{'='*60}\n")
+                    f.write(f"Fatal crash at {datetime.now()}\n")
+                    f.write(f"Exception type: {exc_type.__name__}\n")
+                    f.write(f"Exception value: {exc_value}\n")
+                    f.write(f"Traceback:\n{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}\n")
+                    f.write(f"{'='*60}\n")
+            except Exception:
+                pass
+        
+        # Exit with error code
+        sys.exit(1)
+    
+    # Set the global exception handler
+    sys.excepthook = exception_handler
 
 
 def get_launcher_version():
@@ -389,16 +503,11 @@ def run_script_directly():
             os.chdir(original_cwd)
             
     except Exception as e:
-        # If direct execution fails, show error
-        try:
-            import tkinter.messagebox as messagebox
-            import traceback
-            error_msg = f"Error launching script:\n{str(e)}\n\n{traceback.format_exc()}"
-            messagebox.showerror("Launch Error", error_msg)
-        except:
-            import traceback
-            print(f"Error launching script: {e}")
-            traceback.print_exc()
+        # If direct execution fails, show error using our error dialog function
+        import traceback
+        error_msg = f"Error launching script:\n{str(e)}"
+        traceback_str = traceback.format_exc()
+        show_error_dialog("Launch Error", error_msg, traceback_str)
         return False
 
 
@@ -841,8 +950,12 @@ def cleanup_old_exe():
 
 def main():
     """Main launcher entry point."""
+    # Set up global exception handler FIRST (before hiding console)
+    # This ensures errors are shown even when console is hidden
+    setup_global_exception_handler()
+    
     # Hide console window immediately if running as frozen exe
-    # This must happen FIRST, before any other operations
+    # This must happen early, but after exception handler setup
     if hasattr(sys, 'frozen') and sys.platform == 'win32':
         try:
             import ctypes
@@ -914,6 +1027,19 @@ def main():
                 if bundled_hotkeys_icon.exists():
                     try:
                         shutil.copy2(bundled_hotkeys_icon, hotkeys_icon_path)
+                    except Exception:
+                        pass
+            
+            # Extract logo from bundle if it doesn't exist
+            logo_dir = LAUNCHER_DIR / "Logo"
+            logo_path = logo_dir / "bandcamp-button-circle-line-aqua-128.png"
+            if not logo_path.exists():
+                bundled_logo = bundle_dir / "Logo" / "bandcamp-button-circle-line-aqua-128.png"
+                if bundled_logo.exists():
+                    try:
+                        # Create Logo directory if it doesn't exist
+                        logo_dir.mkdir(exist_ok=True)
+                        shutil.copy2(bundled_logo, logo_path)
                     except Exception:
                         pass
     
@@ -1014,14 +1140,10 @@ def main():
 def launch_script():
     """Launch the main script directly in the current Python process (self-contained)."""
     if not SCRIPT_PATH.exists():
-        try:
-            import tkinter.messagebox as messagebox
-            messagebox.showerror(
-                "Error",
-                f"{SCRIPT_NAME} not found!\n\nPlease ensure the script is downloaded."
-            )
-        except:
-            pass
+        show_error_dialog(
+            "Error",
+            f"{SCRIPT_NAME} not found!\n\nPlease ensure the script is downloaded."
+        )
         return
     
     # Run the script directly in the current embedded Python process
@@ -1035,4 +1157,30 @@ def launch_script():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        # Catch any errors during main() execution
+        # This is a fallback in case the global exception handler wasn't set up yet
+        try:
+            setup_global_exception_handler()
+            show_error_dialog(
+                "Fatal Error",
+                f"Failed to start Bandcamp Player:\n\n{str(e)}",
+                str(e)
+            )
+        except Exception:
+            # Last resort: try to write to log file
+            try:
+                log_file = Path(__file__).parent / "crash_log.txt" if not hasattr(sys, 'frozen') else LAUNCHER_DIR / "crash_log.txt"
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    from datetime import datetime
+                    import traceback
+                    f.write(f"\n{'='*60}\n")
+                    f.write(f"Fatal startup crash at {datetime.now()}\n")
+                    f.write(f"Error: {str(e)}\n")
+                    f.write(f"Traceback:\n{traceback.format_exc()}\n")
+                    f.write(f"{'='*60}\n")
+            except Exception:
+                pass
+        sys.exit(1)

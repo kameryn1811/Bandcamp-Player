@@ -15,6 +15,7 @@ a = Analysis(
         ('icon.ico', '.'),  # Bundle icon.ico (will be extracted to launcher directory on first run)
         ('bandcamp_player_hotkeys.ahk', '.'),  # Bundle AutoHotkey script (will be extracted to launcher directory on first run)
         ('icon-hotkeys.ico', '.'),  # Bundle AutoHotkey icon (will be extracted to launcher directory on first run)
+        ('Logo/bandcamp-button-circle-line-aqua-128.png', 'Logo'),  # Bundle logo (will be extracted to Logo directory on first run)
     ],
     hiddenimports=[
         'requests',  # Required for GitHub API calls

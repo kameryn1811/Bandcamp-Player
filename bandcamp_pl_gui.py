@@ -5,7 +5,7 @@ Proof of concept using PyQt6 with QWebEngineView
 """
 
 # Application version (update this when releasing)
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 import sys
 import os
@@ -1784,8 +1784,8 @@ body, html, #pgBd, .p-tralbum-page-container, .leftColumn, .rightColumn {
     box-sizing: border-box !important;
 }
 
-/* Force ALL horizontal scrollbars to match vertical scrollbar thickness */
-/* Target carousel and all other elements aggressively */
+/* Hide horizontal scrollbar on carousel completely to prevent crashes */
+/* This prevents the horizontal scrollbar from appearing and causing issues */
 #tralbum-art-carousel::-webkit-scrollbar:horizontal,
 .tralbum-art-carousel-container::-webkit-scrollbar:horizontal,
 #tralbum-art-carousel *::-webkit-scrollbar:horizontal,
@@ -1794,14 +1794,14 @@ body, html, #pgBd, .p-tralbum-page-container, .leftColumn, .rightColumn {
 .carousel *::-webkit-scrollbar:horizontal,
 [class*="carousel"]::-webkit-scrollbar:horizontal,
 [class*="carousel"] *::-webkit-scrollbar:horizontal {
-    height: 10px !important; /* Match vertical scrollbar width (10px) */
-    max-height: 10px !important; /* Force maximum height */
-    min-height: 10px !important; /* Force minimum height */
+    height: 0px !important;
+    max-height: 0px !important;
+    min-height: 0px !important;
     background: transparent !important;
-    width: auto !important;
+    display: none !important;
 }
 
-/* Ensure ALL horizontal scrollbar thumbs match vertical styling */
+/* Hide horizontal scrollbar thumb on carousel */
 #tralbum-art-carousel::-webkit-scrollbar-thumb:horizontal,
 .tralbum-art-carousel-container::-webkit-scrollbar-thumb:horizontal,
 #tralbum-art-carousel *::-webkit-scrollbar-thumb:horizontal,
@@ -1810,14 +1810,38 @@ body, html, #pgBd, .p-tralbum-page-container, .leftColumn, .rightColumn {
 .carousel *::-webkit-scrollbar-thumb:horizontal,
 [class*="carousel"]::-webkit-scrollbar-thumb:horizontal,
 [class*="carousel"] *::-webkit-scrollbar-thumb:horizontal {
-    background-color: rgba(74, 74, 74, 0.5) !important;
-    border-radius: 5px !important;
-    border: 2px solid transparent !important;
-    background-clip: padding-box !important;
-    min-width: 20px !important;
-    height: 10px !important; /* Match scrollbar track height */
-    max-height: 10px !important;
-    transition: background-color 0.15s ease !important;
+    display: none !important;
+    height: 0px !important;
+    width: 0px !important;
+}
+
+/* Hide additional carousel items beyond the first one */
+/* Show only the first image, hide the rest */
+.p-tralbum-page-container .tralbum-art-carousel-container .carousel .carousel-item:not(:first-child) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Ensure first carousel item is visible and properly sized */
+.p-tralbum-page-container .tralbum-art-carousel-container .carousel .carousel-item:first-child {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Prevent horizontal scrolling on carousel container */
+/* This ensures the carousel doesn't create a horizontal scrollbar */
+#tralbum-art-carousel,
+.tralbum-art-carousel-container,
+.p-tralbum-page-container .tralbum-art-carousel-container .carousel {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
 }
 """
     
@@ -2684,7 +2708,8 @@ body.micro-mode .p-tralbum-page-container {
     margin: 0 !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
-    overflow: visible !important;
+    overflow-x: hidden !important; /* Hide horizontal scrolling */
+    overflow-y: visible !important; /* Allow vertical flow */
     position: relative !important;
 }
 
@@ -2693,13 +2718,66 @@ body.micro-mode {
     height: auto !important;
     min-height: auto !important;
     max-height: none !important;
-    overflow: auto !important; /* Allow scrolling to see tracklist */
+    overflow-x: hidden !important; /* Hide horizontal scrolling */
+    overflow-y: auto !important; /* Allow vertical scrolling to see tracklist */
     padding: 0 !important;
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     margin: 0 !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
+}
+
+/* Hide horizontal scrollbars on main containers in micro mode */
+/* Don't apply to all elements (*) as it can break functionality */
+body.micro-mode #player,
+body.micro-mode #tracklist,
+body.micro-mode #about-tralbum,
+body.micro-mode .leftColumn,
+body.micro-mode .rightColumn,
+body.micro-mode .player-container {
+    overflow-x: hidden !important;
+}
+
+/* Allow vertical scrolling where needed in micro mode, but hide horizontal */
+body.micro-mode,
+body.micro-mode html {
+    overflow-x: hidden !important; /* Hide horizontal scrolling */
+    overflow-y: auto !important; /* Allow vertical scrolling */
+}
+
+body.micro-mode #pgBd,
+body.micro-mode .p-tralbum-page-container {
+    overflow-x: hidden !important; /* Hide horizontal scrolling */
+    overflow-y: visible !important; /* Allow vertical flow */
+}
+
+/* Hide all horizontal scrollbars in micro mode */
+body.micro-mode::-webkit-scrollbar:horizontal,
+body.micro-mode *::-webkit-scrollbar:horizontal,
+body.micro-mode html::-webkit-scrollbar:horizontal,
+body.micro-mode #pgBd::-webkit-scrollbar:horizontal,
+body.micro-mode .p-tralbum-page-container::-webkit-scrollbar:horizontal,
+body.micro-mode #player::-webkit-scrollbar:horizontal,
+body.micro-mode #tracklist::-webkit-scrollbar:horizontal {
+    height: 0px !important;
+    max-height: 0px !important;
+    min-height: 0px !important;
+    background: transparent !important;
+    display: none !important;
+}
+
+/* Hide horizontal scrollbar thumbs in micro mode */
+body.micro-mode::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode *::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode html::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode #pgBd::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode .p-tralbum-page-container::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode #player::-webkit-scrollbar-thumb:horizontal,
+body.micro-mode #tracklist::-webkit-scrollbar-thumb:horizontal {
+    display: none !important;
+    height: 0px !important;
+    width: 0px !important;
 }
 
 /* Remove any spacing from player container in micro mode */
@@ -9564,36 +9642,71 @@ class PlayerWindow(QMainWindow):
                         // Set player to visible when autohide is enabled
                         document.body.classList.remove('mini-mode-player-hidden');
                         
-                        // Setup hover event listeners for autohide
-                        function setupAutohideHover() {{
-                            var player = document.querySelector('#player');
-                            if (player) {{
-                                // Remove existing setup attribute to allow re-setup
-                                player.removeAttribute('data-autohide-setup');
-                                
-                                if (!player.hasAttribute('data-autohide-setup')) {{
-                                    player.setAttribute('data-autohide-setup', 'true');
-                                    
-                                    // Add hover class on mouseenter
-                                    player.addEventListener('mouseenter', function() {{
-                                        player.classList.add('player-hovered');
-                                    }});
-                                    
-                                    // Remove hover class on mouseleave
-                                    player.addEventListener('mouseleave', function() {{
-                                        player.classList.remove('player-hovered');
-                                    }});
-                                }}
+                        // Setup autohide on-demand (user just toggled, DOM should be ready)
+                        function setupAutohideOnDemand() {{
+                            if (!document.body.classList.contains('mini-mode-autohide')) {{
+                                return;
                             }}
+                            
+                            var player = document.querySelector('#player');
+                            if (!player || player.hasAttribute('data-autohide-setup')) {{
+                                return;
+                            }}
+                            
+                            // Remove old listeners if they exist
+                            var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                            var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                            if (oldEnterHandler) {{
+                                player.removeEventListener('mouseenter', oldEnterHandler);
+                            }}
+                            if (oldLeaveHandler) {{
+                                player.removeEventListener('mouseleave', oldLeaveHandler);
+                            }}
+                            
+                            // Create new handlers
+                            var enterHandler = function() {{
+                                player.classList.add('player-hovered');
+                            }};
+                            var leaveHandler = function() {{
+                                player.classList.remove('player-hovered');
+                            }};
+                            
+                            // Store handlers
+                            player._bandcampAutohideEnterHandler = enterHandler;
+                            player._bandcampAutohideLeaveHandler = leaveHandler;
+                            
+                            // Add listeners
+                            player.addEventListener('mouseenter', enterHandler);
+                            player.addEventListener('mouseleave', leaveHandler);
+                            
+                            // Mark as set up
+                            player.setAttribute('data-autohide-setup', 'true');
                         }}
                         
-                        // Setup immediately
-                        setupAutohideHover();
+                        // Set up immediately (user action, DOM should be ready)
+                        setupAutohideOnDemand();
                         
-                        // Also setup when player is added dynamically
+                        // Retry if player doesn't exist yet (short retry since user just toggled)
+                        var retryCount = 0;
+                        var maxRetries = 5;
+                        var checkPlayer = function() {{
+                            var player = document.querySelector('#player');
+                            if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                setupAutohideOnDemand();
+                            }} else if (!player && retryCount < maxRetries) {{
+                                retryCount++;
+                                setTimeout(checkPlayer, 100);
+                            }}
+                        }};
+                        setTimeout(checkPlayer, 50);
+                        
+                        // Watch for player being added dynamically
                         if (typeof MutationObserver !== 'undefined') {{
                             var observer = new MutationObserver(function(mutations) {{
-                                setupAutohideHover();
+                                var player = document.querySelector('#player');
+                                if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                    setupAutohideOnDemand();
+                                }}
                             }});
                             observer.observe(document.body, {{
                                 childList: true,
@@ -9603,10 +9716,23 @@ class PlayerWindow(QMainWindow):
                     }} else {{
                         document.body.classList.remove('mini-mode-autohide');
                         
-                        // Remove hover class if autohide is disabled
+                        // Clean up autohide when disabled
                         var player = document.querySelector('#player');
                         if (player) {{
                             player.classList.remove('player-hovered');
+                            
+                            // Remove event listeners
+                            var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                            var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                            if (oldEnterHandler) {{
+                                player.removeEventListener('mouseenter', oldEnterHandler);
+                                delete player._bandcampAutohideEnterHandler;
+                            }}
+                            if (oldLeaveHandler) {{
+                                player.removeEventListener('mouseleave', oldLeaveHandler);
+                                delete player._bandcampAutohideLeaveHandler;
+                            }}
+                            
                             player.removeAttribute('data-autohide-setup');
                         }}
                     }}
@@ -9645,38 +9771,71 @@ class PlayerWindow(QMainWindow):
                     if (isAutohide) {{
                         document.body.classList.add('mini-mode-autohide');
                         
-                        // Setup hover event listeners for autohide
-                        function setupAutohideHover() {{
-                            var player = document.querySelector('#player');
-                            if (player) {{
-                                // Remove existing setup attribute to allow re-setup
-                                player.removeAttribute('data-autohide-setup');
-                                
-                                // Remove any existing listeners by cloning the element
-                                // (This is a workaround - in a real app you'd store references)
-                                if (!player.hasAttribute('data-autohide-setup')) {{
-                                    player.setAttribute('data-autohide-setup', 'true');
-                                    
-                                    // Add hover class on mouseenter
-                                    player.addEventListener('mouseenter', function() {{
-                                        player.classList.add('player-hovered');
-                                    }});
-                                    
-                                    // Remove hover class on mouseleave
-                                    player.addEventListener('mouseleave', function() {{
-                                        player.classList.remove('player-hovered');
-                                    }});
-                                }}
+                        // Setup autohide on-demand (user just toggled, DOM should be ready)
+                        function setupAutohideOnDemand() {{
+                            if (!document.body.classList.contains('mini-mode-autohide')) {{
+                                return;
                             }}
+                            
+                            var player = document.querySelector('#player');
+                            if (!player || player.hasAttribute('data-autohide-setup')) {{
+                                return;
+                            }}
+                            
+                            // Remove old listeners if they exist
+                            var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                            var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                            if (oldEnterHandler) {{
+                                player.removeEventListener('mouseenter', oldEnterHandler);
+                            }}
+                            if (oldLeaveHandler) {{
+                                player.removeEventListener('mouseleave', oldLeaveHandler);
+                            }}
+                            
+                            // Create new handlers
+                            var enterHandler = function() {{
+                                player.classList.add('player-hovered');
+                            }};
+                            var leaveHandler = function() {{
+                                player.classList.remove('player-hovered');
+                            }};
+                            
+                            // Store handlers
+                            player._bandcampAutohideEnterHandler = enterHandler;
+                            player._bandcampAutohideLeaveHandler = leaveHandler;
+                            
+                            // Add listeners
+                            player.addEventListener('mouseenter', enterHandler);
+                            player.addEventListener('mouseleave', leaveHandler);
+                            
+                            // Mark as set up
+                            player.setAttribute('data-autohide-setup', 'true');
                         }}
                         
-                        // Setup immediately
-                        setupAutohideHover();
+                        // Set up immediately (user action, DOM should be ready)
+                        setupAutohideOnDemand();
                         
-                        // Also setup when player is added dynamically
+                        // Retry if player doesn't exist yet (short retry since user just toggled)
+                        var retryCount = 0;
+                        var maxRetries = 5;
+                        var checkPlayer = function() {{
+                            var player = document.querySelector('#player');
+                            if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                setupAutohideOnDemand();
+                            }} else if (!player && retryCount < maxRetries) {{
+                                retryCount++;
+                                setTimeout(checkPlayer, 100);
+                            }}
+                        }};
+                        setTimeout(checkPlayer, 50);
+                        
+                        // Watch for player being added dynamically
                         if (typeof MutationObserver !== 'undefined') {{
                             var observer = new MutationObserver(function(mutations) {{
-                                setupAutohideHover();
+                                var player = document.querySelector('#player');
+                                if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                    setupAutohideOnDemand();
+                                }}
                             }});
                             observer.observe(document.body, {{
                                 childList: true,
@@ -9686,10 +9845,23 @@ class PlayerWindow(QMainWindow):
                     }} else {{
                         document.body.classList.remove('mini-mode-autohide');
                         
-                        // Remove hover class if autohide is disabled
+                        // Clean up autohide when disabled
                         var player = document.querySelector('#player');
                         if (player) {{
                             player.classList.remove('player-hovered');
+                            
+                            // Remove event listeners
+                            var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                            var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                            if (oldEnterHandler) {{
+                                player.removeEventListener('mouseenter', oldEnterHandler);
+                                delete player._bandcampAutohideEnterHandler;
+                            }}
+                            if (oldLeaveHandler) {{
+                                player.removeEventListener('mouseleave', oldLeaveHandler);
+                                delete player._bandcampAutohideLeaveHandler;
+                            }}
+                            
                             player.removeAttribute('data-autohide-setup');
                         }}
                     }}
@@ -10232,6 +10404,60 @@ class PlayerWindow(QMainWindow):
         """Setup the web engine view with mobile user agent"""
         self.web_view = QWebEngineView()
         
+        # Disable Qt widget-level scrollbars completely
+        # QWebEngineView doesn't have setVerticalScrollBarPolicy, so we need to hide scrollbars
+        # by finding them as child widgets and hiding them, plus using stylesheet
+        # This prevents double scrollbars (Qt widget scrollbars + page content scrollbars)
+        # In .exe builds, scrollbars may appear later, so we need continuous monitoring
+        def hide_scrollbars():
+            """Hide any scrollbar widgets that might appear"""
+            try:
+                from PyQt6.QtWidgets import QScrollBar, QAbstractScrollArea
+                # Find all scrollbar widgets in the webview and hide them
+                for child in self.web_view.findChildren(QScrollBar):
+                    child.hide()
+                    child.setEnabled(False)
+                    # Set size to 0 to prevent it from taking up layout space
+                    child.setMaximumSize(0, 0)
+                    child.setMinimumSize(0, 0)
+                    # Set geometry to 0 to ensure it doesn't take up space
+                    child.setGeometry(0, 0, 0, 0)
+                    # Also try to set it as not visible in layout
+                    child.setVisible(False)
+                
+                # Also try to find any QAbstractScrollArea children and disable their scrollbars
+                for scroll_area in self.web_view.findChildren(QAbstractScrollArea):
+                    try:
+                        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                        # Also hide the scrollbars directly
+                        v_scrollbar = scroll_area.verticalScrollBar()
+                        h_scrollbar = scroll_area.horizontalScrollBar()
+                        if v_scrollbar:
+                            v_scrollbar.hide()
+                            v_scrollbar.setGeometry(0, 0, 0, 0)
+                        if h_scrollbar:
+                            h_scrollbar.hide()
+                            h_scrollbar.setGeometry(0, 0, 0, 0)
+                    except Exception:
+                        pass
+            except Exception:
+                pass  # Silently fail if we can't hide scrollbars
+        
+        # Hide scrollbars immediately and continuously monitor
+        # This is especially important for .exe builds where scrollbars may appear later
+        hide_scrollbars()  # Immediate attempt
+        QTimer.singleShot(50, hide_scrollbars)
+        QTimer.singleShot(100, hide_scrollbars)
+        QTimer.singleShot(500, hide_scrollbars)
+        QTimer.singleShot(1000, hide_scrollbars)
+        
+        # Set up continuous monitoring timer to catch scrollbars that appear later
+        # This is critical for .exe builds where scrollbars may be created dynamically
+        self._scrollbar_hide_timer = QTimer()
+        self._scrollbar_hide_timer.timeout.connect(hide_scrollbars)
+        self._scrollbar_hide_timer.start(2000)  # Check every 2 seconds
+        
         # Enable drag and drop on web view
         self.web_view.setAcceptDrops(True)
         
@@ -10268,8 +10494,52 @@ class PlayerWindow(QMainWindow):
         self.web_view.dragEnterEvent = web_view_drag_enter
         self.web_view.dropEvent = web_view_drop
         
+        # Override resizeEvent to hide scrollbars when webview is resized
+        # This is important because scrollbars may reappear on resize in .exe builds
+        original_resize_event = self.web_view.resizeEvent
+        def web_view_resize_event(event):
+            # Call original resize event first
+            original_resize_event(event)
+            # Then immediately hide any scrollbars that appeared
+            hide_scrollbars()
+        self.web_view.resizeEvent = web_view_resize_event
+        
         # Initially hide the web view
-        self.web_view.setStyleSheet("QWebEngineView { background-color: #212121; }")
+        # Set stylesheet with background color and aggressive scrollbar hiding
+        # This prevents double scrollbars (Qt widget scrollbars + page content scrollbars)
+        # The stylesheet approach is the primary method since QWebEngineView doesn't support scrollbar policies
+        self.web_view.setStyleSheet("""
+            QWebEngineView {
+                background-color: #212121;
+            }
+            QWebEngineView QScrollBar:vertical {
+                width: 0px !important;
+                max-width: 0px !important;
+                min-width: 0px !important;
+                background: transparent !important;
+                border: none !important;
+            }
+            QWebEngineView QScrollBar:horizontal {
+                height: 0px !important;
+                max-height: 0px !important;
+                min-height: 0px !important;
+                background: transparent !important;
+                border: none !important;
+            }
+            QWebEngineView QScrollBar::handle:vertical,
+            QWebEngineView QScrollBar::handle:horizontal {
+                width: 0px !important;
+                height: 0px !important;
+                background: transparent !important;
+            }
+            QWebEngineView QScrollBar::add-line:vertical,
+            QWebEngineView QScrollBar::add-line:horizontal,
+            QWebEngineView QScrollBar::sub-line:vertical,
+            QWebEngineView QScrollBar::sub-line:horizontal {
+                width: 0px !important;
+                height: 0px !important;
+            }
+        """)
         self.web_view.hide()
         
         # Custom context menu with native Inspect action for proper functionality
@@ -10493,10 +10763,8 @@ class PlayerWindow(QMainWindow):
         # Inject CSS when page loads
         self.web_view.page().loadFinished.connect(self.on_page_loaded)
         
-        # Initialize image viewer modal structure early (before any page loads)
-        # This ensures the modal is ready whenever a URL is loaded
-        # Use a small delay to ensure the page object is fully ready
-        QTimer.singleShot(100, self._initialize_image_viewer_modal_early)
+        # Image viewer modal will be created on-demand when user clicks cover art
+        # This is more reliable since it only happens when DOM is ready and user actually needs it
         
         # Poll for image viewer actions from JavaScript
         self._image_viewer_action_timer = QTimer()
@@ -12360,8 +12628,13 @@ class PlayerWindow(QMainWindow):
             # Start with low opacity, will fade in fully after CSS injection
             self.web_view.setWindowOpacity(0.3)
             # Inject CSS early (at 30% load) for faster styling
+            # But only if this isn't the first launch - on first launch, wait for full load
             if progress == 30:  # Only inject once at 30%
-                self.inject_css_with_callback()
+                is_first_launch = not self.settings.get('mini_mode_js_fixed', False)
+                if not is_first_launch:
+                    # Not first launch - safe to inject early
+                    self.inject_css_with_callback()
+                # On first launch, wait for full load to ensure DOM is ready
     
     def on_page_loaded(self, success):
         """Handle page load completion"""
@@ -12391,6 +12664,17 @@ class PlayerWindow(QMainWindow):
             # On first launch, use even longer delays to ensure everything is properly initialized
             def ensure_js_setup():
                 if hasattr(self, 'web_view') and self.web_view and self.web_view.page():
+                    # On first launch, ensure welcome widget is hidden before injecting JavaScript
+                    # The welcome widget might interfere with DOM setup
+                    is_first_launch = not self.settings.get('mini_mode_js_fixed', False)
+                    if is_first_launch and hasattr(self, 'welcome_widget') and self.welcome_widget:
+                        if self.welcome_widget.isVisible():
+                            # Welcome widget still visible, hide it first
+                            self.welcome_widget.hide()
+                            # Wait a bit more before injecting to ensure DOM is stable
+                            QTimer.singleShot(200, lambda: self.inject_css())
+                            return
+                    
                     # Re-inject to ensure all JavaScript is properly set up
                     # This is especially important on startup when DOM might not be ready yet
                     self.inject_css()
@@ -12922,105 +13206,126 @@ class PlayerWindow(QMainWindow):
                         document.body.classList.remove('micro-mode');
                         
                         // Apply mini mode player autohide class if enabled
+                        // Autohide event listeners will be set up on-demand when user interacts with mini mode
                         if ({'true' if self.mini_mode_player_autohide else 'false'}) {{
                             document.body.classList.add('mini-mode-autohide');
-                            
-                            // Setup hover event listeners for autohide
-                            // Use a function to setup listeners that can be called multiple times safely
-                            function setupAutohideHover() {{
-                                var player = document.querySelector('#player');
-                                if (!player) return;
-                                
-                                // If already set up, remove old listeners first to prevent duplicates
-                                if (player.hasAttribute('data-autohide-setup')) {{
-                                    // Remove old event listeners if they exist
-                                    var oldEnterHandler = player._bandcampAutohideEnterHandler;
-                                    var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
-                                    if (oldEnterHandler) {{
-                                        player.removeEventListener('mouseenter', oldEnterHandler);
-                                    }}
-                                    if (oldLeaveHandler) {{
-                                        player.removeEventListener('mouseleave', oldLeaveHandler);
-                                    }}
-                                }}
-                                
-                                // Create new event handlers and store references
-                                var enterHandler = function() {{
-                                    player.classList.add('player-hovered');
-                                }};
-                                var leaveHandler = function() {{
-                                    player.classList.remove('player-hovered');
-                                }};
-                                
-                                // Store handlers so we can remove them later
-                                player._bandcampAutohideEnterHandler = enterHandler;
-                                player._bandcampAutohideLeaveHandler = leaveHandler;
-                                
-                                // Add new event listeners
-                                player.addEventListener('mouseenter', enterHandler);
-                                player.addEventListener('mouseleave', leaveHandler);
-                                
-                                // Mark as set up
-                                player.setAttribute('data-autohide-setup', 'true');
+                        }}
+                        
+                        // Function to set up autohide hover listeners on-demand
+                        // This is called when user actually interacts with mini mode, ensuring DOM is ready
+                        function setupAutohideOnDemand() {{
+                            // Verify DOM is ready
+                            if (!document.body) {{
+                                return; // Body doesn't exist yet
                             }}
                             
-                            // Setup with retry logic - player might not exist yet on startup
-                            // Use more retries and longer delays for startup scenarios
-                            function setupAutohideWithRetry(retryCount) {{
-                                retryCount = retryCount || 0;
-                                // Increased retries for startup (20 retries = up to 4 seconds)
-                                var maxRetries = 20;
-                                // Progressive delay: start with 100ms, increase to 300ms for later retries
-                                var retryDelay = retryCount < 10 ? 100 : 300;
-                                
+                            // Only set up if autohide is enabled and we're in mini mode
+                            if (!document.body.classList.contains('mini-mode-autohide')) {{
+                                return;
+                            }}
+                            
+                            var player = document.querySelector('#player');
+                            if (!player) {{
+                                return; // Player doesn't exist yet
+                            }}
+                            
+                            // Verify player is actually in DOM and has dimensions
+                            var rect = player.getBoundingClientRect();
+                            if (!rect || (rect.width === 0 && rect.height === 0)) {{
+                                return; // Player exists but not rendered yet
+                            }}
+                            
+                            // If already set up, skip
+                            if (player.hasAttribute('data-autohide-setup')) {{
+                                return;
+                            }}
+                            
+                            // Remove old listeners if they exist (cleanup)
+                            var oldEnterHandler = player._bandcampAutohideEnterHandler;
+                            var oldLeaveHandler = player._bandcampAutohideLeaveHandler;
+                            if (oldEnterHandler) {{
+                                player.removeEventListener('mouseenter', oldEnterHandler);
+                            }}
+                            if (oldLeaveHandler) {{
+                                player.removeEventListener('mouseleave', oldLeaveHandler);
+                            }}
+                            
+                            // Create new event handlers and store references
+                            var enterHandler = function() {{
+                                player.classList.add('player-hovered');
+                            }};
+                            var leaveHandler = function() {{
+                                player.classList.remove('player-hovered');
+                            }};
+                            
+                            // Store handlers so we can remove them later
+                            player._bandcampAutohideEnterHandler = enterHandler;
+                            player._bandcampAutohideLeaveHandler = leaveHandler;
+                            
+                            // Add new event listeners
+                            player.addEventListener('mouseenter', enterHandler);
+                            player.addEventListener('mouseleave', leaveHandler);
+                            
+                            // Mark as set up
+                            player.setAttribute('data-autohide-setup', 'true');
+                        }}
+                        
+                        // Set up autohide on-demand when switching to mini mode
+                        // Since this is triggered by user action (mode switch), DOM should be ready
+                        if (document.body.classList.contains('mini-mode-autohide')) {{
+                            // Verify setup succeeded
+                            function verifySetup() {{
                                 var player = document.querySelector('#player');
-                                if (player) {{
-                                    // Player exists, set up hover listeners
-                                    setupAutohideHover();
-                                }} else if (retryCount < maxRetries) {{
-                                    // Player doesn't exist yet, retry after delay
+                                if (player && player.hasAttribute('data-autohide-setup')) {{
+                                    // Setup succeeded - verify handlers exist
+                                    if (player._bandcampAutohideEnterHandler && player._bandcampAutohideLeaveHandler) {{
+                                        return true; // Setup verified
+                                    }}
+                                }}
+                                return false; // Setup not complete
+                            }}
+                            
+                            // Try to set up immediately (user just switched to mini mode, DOM should be ready)
+                            setupAutohideOnDemand();
+                            
+                            // Verify setup succeeded after a short delay
+                            setTimeout(function() {{
+                                if (!verifySetup()) {{
+                                    // Setup didn't succeed, retry
+                                    setupAutohideOnDemand();
+                                }}
+                            }}, 100);
+                            
+                            // If player doesn't exist yet, set up when it appears
+                            // Use a simple retry with short delay (user action means page is likely ready)
+                            var retryCount = 0;
+                            var maxRetries = 8; // Increased retries for startup reliability
+                            var checkPlayer = function() {{
+                                var player = document.querySelector('#player');
+                                if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                    setupAutohideOnDemand();
+                                    // Verify after setup
                                     setTimeout(function() {{
-                                        setupAutohideWithRetry(retryCount + 1);
-                                    }}, retryDelay);
-                                }}
-                            }}
-                            
-                            // Start setup with retry - also check if page is ready
-                            if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-                                // Page is ready, start setup immediately
-                                setupAutohideWithRetry();
-                            }} else {{
-                                // Page not ready yet, wait for it
-                                document.addEventListener('DOMContentLoaded', function() {{
-                                    setupAutohideWithRetry();
-                                }});
-                                // Also try after a delay in case DOMContentLoaded already fired
-                                setTimeout(function() {{
-                                    setupAutohideWithRetry();
-                                }}, 100);
-                            }}
-                            
-                            // Also setup when player is added dynamically (MutationObserver)
-                            // Use a debounced approach to prevent excessive calls
-                            if (typeof MutationObserver !== 'undefined') {{
-                                var setupTimeout = null;
-                                var observer = new MutationObserver(function(mutations) {{
-                                    // Debounce: only check after mutations stop for 100ms
-                                    if (setupTimeout) {{
-                                        clearTimeout(setupTimeout);
-                                    }}
-                                    setupTimeout = setTimeout(function() {{
-                                        var player = document.querySelector('#player');
-                                        // Only setup if player exists and isn't already set up
-                                        // OR if player was replaced (lost the attribute)
-                                        if (player) {{
-                                            // Check if setup is needed (player exists but not set up, or was replaced)
-                                            var needsSetup = !player.hasAttribute('data-autohide-setup');
-                                            if (needsSetup) {{
-                                                setupAutohideHover();
-                                            }}
+                                        if (!verifySetup()) {{
+                                            setupAutohideOnDemand(); // Retry if failed
                                         }}
                                     }}, 100);
+                                }} else if (!player && retryCount < maxRetries) {{
+                                    retryCount++;
+                                    setTimeout(checkPlayer, 150); // Slightly longer delay
+                                }}
+                            }};
+                            
+                            // Start checking after a small delay to ensure DOM is stable
+                            setTimeout(checkPlayer, 100);
+                            
+                            // Also set up when player is added dynamically
+                            if (typeof MutationObserver !== 'undefined') {{
+                                var observer = new MutationObserver(function(mutations) {{
+                                    var player = document.querySelector('#player');
+                                    if (player && !player.hasAttribute('data-autohide-setup')) {{
+                                        setupAutohideOnDemand();
+                                    }}
                                 }});
                                 observer.observe(document.body, {{
                                     childList: true,
@@ -13028,9 +13333,9 @@ class PlayerWindow(QMainWindow):
                                 }});
                             }}
                         }} else {{
+                            // Autohide disabled - clean up
                             document.body.classList.remove('mini-mode-autohide');
                             
-                            // Remove hover class and event listeners if autohide is disabled
                             var player = document.querySelector('#player');
                             if (player) {{
                                 player.classList.remove('player-hovered');
@@ -13731,94 +14036,6 @@ class PlayerWindow(QMainWindow):
         
         self.web_view.page().runJavaScript(js_code, handle_action)
     
-    def _initialize_image_viewer_modal_early(self):
-        """Initialize image viewer modal structure early (before any page loads)
-        This ensures the modal is ready whenever a URL is loaded, fixing first launch issues"""
-        if not hasattr(self, 'web_view') or not self.web_view or not self.web_view.page():
-            # Retry if web view isn't ready yet
-            QTimer.singleShot(100, self._initialize_image_viewer_modal_early)
-            return
-        
-        # Inject JavaScript to create modal structure early
-        # This creates the modal DOM elements and basic event handlers
-        # Click handlers for cover art will be attached when pages load
-        modal_init_js = """
-        (function initializeModalStructure() {
-            // Check if body is ready - if not, retry
-            if (!document.body) {
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initializeModalStructure);
-                } else {
-                    setTimeout(initializeModalStructure, 50);
-                }
-                return;
-            }
-            
-            // Only create modal if it doesn't exist
-            if (document.getElementById('bandcamp-player-cover-modal')) {
-                return; // Already exists
-            }
-            
-            // Create modal structure
-            var modal = document.createElement('div');
-            modal.id = 'bandcamp-player-cover-modal';
-            
-            var closeBtn = document.createElement('div');
-            closeBtn.id = 'bandcamp-player-cover-modal-close';
-            closeBtn.innerHTML = '×';
-            closeBtn.setAttribute('aria-label', 'Close');
-            
-            var img = document.createElement('img');
-            img.id = 'bandcamp-player-cover-modal-content';
-            
-            modal.appendChild(closeBtn);
-            modal.appendChild(img);
-            
-            try {
-                document.body.appendChild(modal);
-                console.log('Bandcamp Player: Image viewer modal structure initialized early');
-            } catch (e) {
-                console.error('Bandcamp Player: Error appending modal to body:', e);
-                setTimeout(initializeModalStructure, 100);
-                return;
-            }
-            
-            // Initialize zoom state (will be used by full setup later)
-            if (!window._bandcampModalZoomLevel) {
-                window._bandcampModalZoomLevel = 1;
-                window._bandcampModalMinZoom = 0.5;
-                window._bandcampModalMaxZoom = 5;
-                window._bandcampModalZoomStep = 0.1;
-            }
-            
-            // Initialize drag state variables
-            if (!window._bandcampModalDragState) {
-                window._bandcampModalDragState = {
-                    isDragging: false,
-                    dragStartX: 0,
-                    dragStartY: 0,
-                    currentTranslateX: 0,
-                    currentTranslateY: 0,
-                    mouseDownX: 0,
-                    mouseDownY: 0,
-                    mouseButtonDown: false,
-                    dragThreshold: 5
-                };
-            }
-            
-            // Mark that modal structure is ready (handlers will be set up when page loads)
-            modal.setAttribute('data-structure-ready', 'true');
-        })();
-        """
-        
-        try:
-            self.web_view.page().runJavaScript(modal_init_js)
-            logger.debug("Initialized image viewer modal structure early")
-        except Exception as e:
-            logger.warning(f"Could not initialize image viewer modal early: {e}")
-            # Retry after a delay
-            QTimer.singleShot(200, self._initialize_image_viewer_modal_early)
-    
     def _get_cover_art_modal_js(self):
         """Get JavaScript code to handle cover art modal functionality"""
         # Get reference to self for Python callbacks
@@ -13839,64 +14056,71 @@ class PlayerWindow(QMainWindow):
                     return;
                 }
                 
-                // Zoom state (shared across modal instances)
-                // Use global state if available (from early initialization), otherwise create new
-                var zoomLevel = window._bandcampModalZoomLevel || 1;
-                var minZoom = window._bandcampModalMinZoom || 0.5;
-                var maxZoom = window._bandcampModalMaxZoom || 5;
-                var zoomStep = window._bandcampModalZoomStep || 0.1;
-                
-                // Get or create modal - check if it was already created by early initialization
-                var modal = document.getElementById('bandcamp-player-cover-modal');
-                var closeBtn = null;
-                var img = null;
-                
-                if (!modal) {
-                    // Modal doesn't exist - create it (fallback for cases where early init didn't run)
-                    modal = document.createElement('div');
-                    modal.id = 'bandcamp-player-cover-modal';
-                    
-                    closeBtn = document.createElement('div');
-                    closeBtn.id = 'bandcamp-player-cover-modal-close';
-                    closeBtn.innerHTML = '×';
-                    closeBtn.setAttribute('aria-label', 'Close');
-                    
-                    img = document.createElement('img');
-                    img.id = 'bandcamp-player-cover-modal-content';
-                    
-                    modal.appendChild(closeBtn);
-                    modal.appendChild(img);
-                    
-                    // Ensure body exists before appending
-                    if (!document.body) {
-                        console.error('Bandcamp Player: document.body is null, cannot append modal');
-                        // Retry after a delay
-                        setTimeout(setupCoverArtModal, 100);
-                        return;
+                // Function to create and set up modal on-demand
+                // This is called when user clicks cover art, ensuring DOM is ready
+                function createAndSetupModal() {
+                    // Check if modal already exists and is set up
+                    var existingModal = document.getElementById('bandcamp-player-cover-modal');
+                    if (existingModal && existingModal.hasAttribute('data-handlers-setup')) {
+                        return existingModal; // Already created and set up
                     }
                     
-                    try {
-                        document.body.appendChild(modal);
-                    } catch (e) {
-                        console.error('Bandcamp Player: Error appending modal to body:', e);
-                        // Retry after a delay
-                        setTimeout(setupCoverArtModal, 100);
-                        return;
+                    // Initialize zoom state (shared across modal instances)
+                    if (!window._bandcampModalZoomLevel) {
+                        window._bandcampModalZoomLevel = 1;
+                        window._bandcampModalMinZoom = 0.5;
+                        window._bandcampModalMaxZoom = 5;
+                        window._bandcampModalZoomStep = 0.1;
                     }
-                } else {
-                    // Modal already exists (from early initialization) - just get references
-                    closeBtn = document.getElementById('bandcamp-player-cover-modal-close');
-                    img = document.getElementById('bandcamp-player-cover-modal-content');
-                }
-                
-                // Only set up event handlers if they haven't been set up yet
-                // Check if modal has data attribute to indicate handlers are already set up
-                // If modal was created early, we still need to set up the event handlers
-                var handlersNeedSetup = !modal.hasAttribute('data-handlers-setup');
-                
-                if (handlersNeedSetup) {
-                    // Mark as set up to prevent duplicate handlers
-                    modal.setAttribute('data-handlers-setup', 'true');
+                    
+                    // Get zoom state from global (or use defaults)
+                    var zoomLevel = window._bandcampModalZoomLevel || 1;
+                    var minZoom = window._bandcampModalMinZoom || 0.5;
+                    var maxZoom = window._bandcampModalMaxZoom || 5;
+                    var zoomStep = window._bandcampModalZoomStep || 0.1;
+                    
+                    // Create modal if it doesn't exist
+                    var modal = existingModal;
+                    var closeBtn = null;
+                    var img = null;
+                    
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'bandcamp-player-cover-modal';
+                        
+                        closeBtn = document.createElement('div');
+                        closeBtn.id = 'bandcamp-player-cover-modal-close';
+                        closeBtn.innerHTML = '×';
+                        closeBtn.setAttribute('aria-label', 'Close');
+                        
+                        img = document.createElement('img');
+                        img.id = 'bandcamp-player-cover-modal-content';
+                        
+                        modal.appendChild(closeBtn);
+                        modal.appendChild(img);
+                        
+                        // Ensure body exists before appending
+                        if (!document.body) {
+                            console.error('Bandcamp Player: document.body is null, cannot append modal');
+                            return null;
+                        }
+                        
+                        try {
+                            document.body.appendChild(modal);
+                        } catch (e) {
+                            console.error('Bandcamp Player: Error appending modal to body:', e);
+                            return null;
+                        }
+                    } else {
+                        // Modal exists but handlers not set up - get references
+                        closeBtn = document.getElementById('bandcamp-player-cover-modal-close');
+                        img = document.getElementById('bandcamp-player-cover-modal-content');
+                    }
+                    
+                    // Set up event handlers (only once)
+                    if (!modal.hasAttribute('data-handlers-setup')) {
+                        // Mark as set up to prevent duplicate handlers
+                        modal.setAttribute('data-handlers-setup', 'true');
                     
                     // Close modal functions
                     function closeModal() {
@@ -14017,8 +14241,50 @@ class PlayerWindow(QMainWindow):
                     // This must run in capture phase to handle events early
                     document.addEventListener('mousedown', function(e) {
                         if ((e.button === 0 || e.button === 1) && modal.classList.contains('active')) {
-                            // Check if click is on the modal or image
+                            // Check if click is on a scrollbar - if so, don't interfere
                             var target = e.target;
+                            // Check if target is a scrollbar element
+                            var isScrollbar = false;
+                            var checkElement = target;
+                            while (checkElement && checkElement !== document.body) {
+                                // Check if element is a scrollbar or part of a scrollbar
+                                var computedStyle = window.getComputedStyle(checkElement);
+                                var elementClass = checkElement.className || '';
+                                var elementId = checkElement.id || '';
+                                // Check for scrollbar indicators
+                                if (computedStyle.overflow === 'scroll' || 
+                                    computedStyle.overflowX === 'scroll' || 
+                                    computedStyle.overflowY === 'scroll' ||
+                                    elementClass.includes('scrollbar') ||
+                                    elementId.includes('scrollbar') ||
+                                    checkElement.tagName === 'SCROLLBAR') {
+                                    isScrollbar = true;
+                                    break;
+                                }
+                                // Check if we're clicking on a scrollbar track/thumb
+                                var rect = checkElement.getBoundingClientRect();
+                                var scrollbarWidth = checkElement.offsetWidth - checkElement.clientWidth;
+                                var scrollbarHeight = checkElement.offsetHeight - checkElement.clientHeight;
+                                // If there's a scrollbar and click is in scrollbar area, don't interfere
+                                if (scrollbarWidth > 0 || scrollbarHeight > 0) {
+                                    var clickX = e.clientX - rect.left;
+                                    var clickY = e.clientY - rect.top;
+                                    // Check if click is in scrollbar area (right edge for vertical, bottom edge for horizontal)
+                                    if ((scrollbarWidth > 0 && clickX > rect.width - scrollbarWidth) ||
+                                        (scrollbarHeight > 0 && clickY > rect.height - scrollbarHeight)) {
+                                        isScrollbar = true;
+                                        break;
+                                    }
+                                }
+                                checkElement = checkElement.parentElement;
+                            }
+                            
+                            // If clicking on scrollbar, don't interfere - let it handle the event
+                            if (isScrollbar) {
+                                return true; // Allow event to propagate normally
+                            }
+                            
+                            // Check if click is on the modal or image
                             if (target === img || target === modal || modal.contains(target)) {
                                 // Handle middle-click for image dragging
                                 e.preventDefault();
@@ -14039,6 +14305,15 @@ class PlayerWindow(QMainWindow):
                     // Also handle on the image element itself (as backup)
                     img.addEventListener('mousedown', function(e) {
                         if ((e.button === 0 || e.button === 1) && modal.classList.contains('active')) { // Left or middle click
+                            // Don't interfere if clicking on scrollbar (shouldn't happen on image, but check anyway)
+                            var target = e.target;
+                            var computedStyle = window.getComputedStyle(target);
+                            if (computedStyle.overflow === 'scroll' || 
+                                computedStyle.overflowX === 'scroll' || 
+                                computedStyle.overflowY === 'scroll') {
+                                return true; // Allow scrollbar to handle it
+                            }
+                            
                             // Handle middle-click for image dragging
                             e.preventDefault();
                             e.stopPropagation();
@@ -14060,6 +14335,52 @@ class PlayerWindow(QMainWindow):
                     document.addEventListener('mousemove', function(e) {
                         if (!modal.classList.contains('active') || !mouseButtonDown) {
                             return;
+                        }
+                        
+                        // Check if mouse is over a scrollbar - if so, don't interfere
+                        var target = e.target;
+                        var isScrollbar = false;
+                        var checkElement = target;
+                        while (checkElement && checkElement !== document.body) {
+                            var computedStyle = window.getComputedStyle(checkElement);
+                            var elementClass = checkElement.className || '';
+                            var elementId = checkElement.id || '';
+                            // Check for scrollbar indicators
+                            if (computedStyle.overflow === 'scroll' || 
+                                computedStyle.overflowX === 'scroll' || 
+                                computedStyle.overflowY === 'scroll' ||
+                                elementClass.includes('scrollbar') ||
+                                elementId.includes('scrollbar') ||
+                                checkElement.tagName === 'SCROLLBAR') {
+                                isScrollbar = true;
+                                break;
+                            }
+                            // Check if we're over a scrollbar track/thumb area
+                            var rect = checkElement.getBoundingClientRect();
+                            var scrollbarWidth = checkElement.offsetWidth - checkElement.clientWidth;
+                            var scrollbarHeight = checkElement.offsetHeight - checkElement.clientHeight;
+                            if (scrollbarWidth > 0 || scrollbarHeight > 0) {
+                                var mouseX = e.clientX - rect.left;
+                                var mouseY = e.clientY - rect.top;
+                                // Check if mouse is in scrollbar area
+                                if ((scrollbarWidth > 0 && mouseX > rect.width - scrollbarWidth) ||
+                                    (scrollbarHeight > 0 && mouseY > rect.height - scrollbarHeight)) {
+                                    isScrollbar = true;
+                                    break;
+                                }
+                            }
+                            checkElement = checkElement.parentElement;
+                        }
+                        
+                        // If mouse is over scrollbar, don't interfere - let scrollbar handle it
+                        if (isScrollbar) {
+                            // Reset drag state if we were dragging
+                            if (isDragging) {
+                                isDragging = false;
+                                mouseButtonDown = false;
+                                img.style.cursor = 'zoom-in';
+                            }
+                            return; // Allow scrollbar to handle the event
                         }
                         
                         // Check if mouse moved enough to be considered a drag
@@ -14373,6 +14694,9 @@ class PlayerWindow(QMainWindow):
                             img.style.transformOrigin = 'center center';
                         }
                     });
+                    }
+                    
+                    return modal;
                 }
                 
                 // Setup click handlers on cover art
@@ -14471,28 +14795,69 @@ class PlayerWindow(QMainWindow):
                                 imgSrc = visibleImg.src || visibleImg.getAttribute('src');
                             }
                             
-                            // Show modal with the image
-                            var modal = document.getElementById('bandcamp-player-cover-modal');
-                            var modalImg = document.getElementById('bandcamp-player-cover-modal-content');
-                            
-                            if (modal && modalImg && imgSrc) {
-                                // Set image source
-                                modalImg.src = imgSrc;
-                                modalImg.alt = visibleImg.alt || 'Album cover art';
+                            // Create and set up modal on-demand (only when user clicks)
+                            // Add verification to ensure setup succeeded (especially important on first launch)
+                            function setupModalWithVerification() {
+                                // Verify DOM is ready
+                                if (!document.body) {
+                                    // Body not ready yet, retry after short delay
+                                    setTimeout(setupModalWithVerification, 50);
+                                    return;
+                                }
                                 
-                                // Handle image load errors - fallback to original src
-                                var imageErrorRetryCount = 0;
-                                modalImg.onerror = function() {
-                                    imageErrorRetryCount++;
-                                    if (imageErrorRetryCount === 1) {
-                                        // First error - try original src
-                                        var originalSrc = visibleImg.src || visibleImg.getAttribute('src');
-                                        if (originalSrc && originalSrc !== imgSrc) {
-                                            modalImg.src = originalSrc;
-                                            return; // Don't log error yet, wait for retry
+                                var modal = createAndSetupModal();
+                                if (!modal) {
+                                    // Modal creation failed, retry once
+                                    setTimeout(function() {
+                                        var retryModal = createAndSetupModal();
+                                        if (!retryModal) {
+                                            console.error('Bandcamp Player: Failed to create image viewer modal after retry');
+                                        } else {
+                                            // Retry succeeded, proceed
+                                            showModalWithImage(retryModal);
                                         }
-                                    }
-                                    // If we've already tried or no fallback available, log once
+                                    }, 100);
+                                    return;
+                                }
+                                
+                                // Verify modal was set up correctly
+                                if (!modal.hasAttribute('data-handlers-setup')) {
+                                    // Handlers not set up, retry
+                                    setTimeout(setupModalWithVerification, 50);
+                                    return;
+                                }
+                                
+                                // Modal is ready, proceed with showing it
+                                showModalWithImage(modal);
+                            }
+                            
+                            function showModalWithImage(modal) {
+                                var modalImg = document.getElementById('bandcamp-player-cover-modal-content');
+                                
+                                if (!modalImg) {
+                                    // Image element missing, retry modal creation
+                                    setTimeout(setupModalWithVerification, 50);
+                                    return;
+                                }
+                                
+                                if (imgSrc) {
+                                    // Set image source
+                                    modalImg.src = imgSrc;
+                                    modalImg.alt = visibleImg.alt || 'Album cover art';
+                                    
+                                    // Handle image load errors - fallback to original src
+                                    var imageErrorRetryCount = 0;
+                                    modalImg.onerror = function() {
+                                        imageErrorRetryCount++;
+                                        if (imageErrorRetryCount === 1) {
+                                            // First error - try original src
+                                            var originalSrc = visibleImg.src || visibleImg.getAttribute('src');
+                                            if (originalSrc && originalSrc !== imgSrc) {
+                                                modalImg.src = originalSrc;
+                                                return; // Don't log error yet, wait for retry
+                                            }
+                                        }
+                                        // If we've already tried or no fallback available, log once
                                     if (imageErrorRetryCount === 1 || imageErrorRetryCount === 2) {
                                         // Only log if it's a real failure (not just a retry)
                                         // This reduces console noise
@@ -14529,7 +14894,14 @@ class PlayerWindow(QMainWindow):
                                         restoreScroll();
                                     }
                                 }, { once: true });
+                                } else {
+                                    // No image source available
+                                    console.warn('Bandcamp Player: No image source available for modal');
+                                }
                             }
+                            
+                            // Start modal setup with verification
+                            setupModalWithVerification();
                         }
                     });
                 }
@@ -14538,15 +14910,43 @@ class PlayerWindow(QMainWindow):
                 // Use more retries and longer delays for startup scenarios
                 function setupWithRetry(retryCount) {
                     retryCount = retryCount || 0;
-                    // Increased retries for startup (20 retries = up to 4 seconds)
-                    var maxRetries = 20;
-                    // Progressive delay: start with 100ms, increase to 300ms for later retries
-                    var retryDelay = retryCount < 10 ? 100 : 300;
+                    // Increased retries for startup (30 retries = up to 6+ seconds)
+                    var maxRetries = 30;
+                    // Progressive delay: start with 150ms, increase to 400ms for later retries
+                    var retryDelay = retryCount < 15 ? 150 : 400;
+                    
+                    // Check if DOM is ready - body must exist and be interactive
+                    if (!document.body) {
+                        if (retryCount < maxRetries) {
+                            setTimeout(function() {
+                                setupWithRetry(retryCount + 1);
+                            }, retryDelay);
+                        }
+                        return;
+                    }
+                    
+                    // Check if page is fully loaded and interactive
+                    var isReady = document.readyState === 'complete' || document.readyState === 'interactive';
+                    if (!isReady && retryCount < maxRetries) {
+                        setTimeout(function() {
+                            setupWithRetry(retryCount + 1);
+                        }, retryDelay);
+                        return;
+                    }
                     
                     var coverArtContainer = document.querySelector('#tralbum-art-carousel');
                     if (coverArtContainer) {
-                        // Element exists, set up handlers
-                        setupCoverArtClickHandlers();
+                        // Verify element is actually in the DOM and visible
+                        var rect = coverArtContainer.getBoundingClientRect();
+                        if (rect && (rect.width > 0 || rect.height > 0)) {
+                            // Element exists and has dimensions, set up handlers
+                            setupCoverArtClickHandlers();
+                        } else if (retryCount < maxRetries) {
+                            // Element exists but not rendered yet, retry
+                            setTimeout(function() {
+                                setupWithRetry(retryCount + 1);
+                            }, retryDelay);
+                        }
                     } else if (retryCount < maxRetries) {
                         // Element doesn't exist yet, retry after delay
                         setTimeout(function() {
@@ -14555,20 +14955,41 @@ class PlayerWindow(QMainWindow):
                     }
                 }
                 
-                // Start setup with retry - also check if page is ready
-                if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                    // Page is ready, start setup immediately
-                    setupWithRetry();
-                } else {
-                    // Page not ready yet, wait for it
-                    document.addEventListener('DOMContentLoaded', function() {
-                        setupWithRetry();
-                    });
-                    // Also try after a delay in case DOMContentLoaded already fired
-                    setTimeout(function() {
-                        setupWithRetry();
-                    }, 100);
+                // Start setup with retry - wait for DOM to be ready
+                // On startup, DOM might not be ready even if readyState says it is
+                function startSetupWhenReady() {
+                    // Wait for body to exist
+                    if (!document.body) {
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', startSetupWhenReady);
+                        } else {
+                            setTimeout(startSetupWhenReady, 100);
+                        }
+                        return;
+                    }
+                    
+                    // Wait for page to be interactive or complete
+                    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                        // Add a small delay even if ready to ensure DOM is fully rendered
+                        setTimeout(function() {
+                            setupWithRetry();
+                        }, 100);
+                    } else {
+                        // Wait for DOMContentLoaded
+                        document.addEventListener('DOMContentLoaded', function() {
+                            setTimeout(function() {
+                                setupWithRetry();
+                            }, 100);
+                        });
+                        // Also try after a delay in case DOMContentLoaded already fired
+                        setTimeout(function() {
+                            setupWithRetry();
+                        }, 200);
+                    }
                 }
+                
+                // Start setup
+                startSetupWhenReady();
                 
                 // Also setup when cover art is added dynamically
                 if (typeof MutationObserver !== 'undefined') {
@@ -15115,6 +15536,96 @@ class PlayerWindow(QMainWindow):
             }})();
             """
     
+    def _inject_javascript_with_retry(self, js_code, retry_count=0, max_retries=3, callback=None):
+        """Inject JavaScript with retry logic and error handling
+        
+        Args:
+            js_code: JavaScript code to inject
+            retry_count: Current retry attempt (internal use)
+            max_retries: Maximum number of retry attempts
+            callback: Optional callback function(result) called after injection
+        """
+        if not hasattr(self, 'web_view') or not self.web_view or not self.web_view.page():
+            logger.warning("_inject_javascript_with_retry: web_view not available")
+            if callback:
+                callback(None)
+            return
+        
+        try:
+            # Wrap the entire JS code (which may already be an IIFE) in a new IIFE that returns a value
+            # This allows us to catch errors and verify execution
+            js_with_return = f"""
+            (function() {{
+                try {{
+                    {js_code}
+                    return true; // Success indicator
+                }} catch (e) {{
+                    console.error('Bandcamp Player: JavaScript injection error:', e);
+                    return false; // Error indicator
+                }}
+            }})();
+            """
+            
+            # Use callback to verify injection succeeded
+            def on_result(result):
+                if result is None or result is False:
+                    # Injection failed or returned false
+                    if retry_count < max_retries:
+                        # Retry with exponential backoff
+                        delay = 100 * (2 ** retry_count)  # 100ms, 200ms, 400ms
+                        logger.debug(f"_inject_javascript_with_retry: Retry {retry_count + 1}/{max_retries} after {delay}ms")
+                        QTimer.singleShot(delay, lambda: self._inject_javascript_with_retry(
+                            js_code, retry_count + 1, max_retries, callback
+                        ))
+                    else:
+                        logger.warning(f"_inject_javascript_with_retry: Max retries ({max_retries}) reached, injection may have failed")
+                        if callback:
+                            callback(False)
+                else:
+                    # Injection succeeded
+                    if callback:
+                        callback(True)
+            
+            # Check if page is ready before injecting
+            check_ready_js = """
+            (function() {
+                if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                    return true;
+                }
+                return false;
+            })();
+            """
+            
+            def on_ready_check(result):
+                if result:
+                    # Page is ready, inject the code
+                    self.web_view.page().runJavaScript(js_with_return, on_result)
+                else:
+                    # Page not ready, wait and retry
+                    if retry_count < max_retries:
+                        delay = 50 * (retry_count + 1)
+                        QTimer.singleShot(delay, lambda: self._inject_javascript_with_retry(
+                            js_code, retry_count, max_retries, callback
+                        ))
+                    else:
+                        # Max retries reached, inject anyway
+                        logger.warning("_inject_javascript_with_retry: Page not ready after checks, injecting anyway")
+                        self.web_view.page().runJavaScript(js_with_return, on_result)
+            
+            # Check if page is ready first
+            self.web_view.page().runJavaScript(check_ready_js, on_ready_check)
+            
+        except Exception as e:
+            logger.error(f"_inject_javascript_with_retry: Exception: {e}", exc_info=True)
+            if retry_count < max_retries:
+                delay = 100 * (2 ** retry_count)
+                QTimer.singleShot(delay, lambda: self._inject_javascript_with_retry(
+                    js_code, retry_count + 1, max_retries, callback
+                ))
+            else:
+                if callback:
+                    callback(False)
+    
     def inject_css(self):
         """Inject CSS for compact/dark/bandcamp/mini modes"""
         # Safety check: ensure web_view and page exist before injecting
@@ -15143,13 +15654,22 @@ class PlayerWindow(QMainWindow):
                     print(f"[DEBUG] inject_css: JavaScript generated, executing...")
                     sys.stdout.flush()
                 logger.debug(f"inject_css: JavaScript generated, executing...")
-                self.web_view.page().runJavaScript(js)
-                # Mark that JavaScript has been injected (image viewer and mini mode setup)
-                self._js_injected_on_current_page = True
-                if debug_mode:
-                    print(f"[DEBUG] inject_css: JavaScript execution scheduled")
-                    sys.stdout.flush()
-                logger.debug(f"inject_css: JavaScript execution scheduled")
+                
+                # Use retry-enabled injection
+                def on_injection_complete(success):
+                    if success:
+                        # Mark that JavaScript has been injected (image viewer and mini mode setup)
+                        self._js_injected_on_current_page = True
+                        if debug_mode:
+                            print(f"[DEBUG] inject_css: JavaScript injection completed successfully")
+                            sys.stdout.flush()
+                        logger.debug(f"inject_css: JavaScript injection completed successfully")
+                    else:
+                        logger.warning("inject_css: JavaScript injection may have failed after retries")
+                        # Still mark as injected to prevent infinite retries, but log the warning
+                        self._js_injected_on_current_page = True
+                
+                self._inject_javascript_with_retry(js, callback=on_injection_complete)
             else:
                 if debug_mode:
                     print("[WARNING] inject_css: No CSS generated")
