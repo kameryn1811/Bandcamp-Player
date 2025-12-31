@@ -104,7 +104,7 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 - This happens because the app isn't code-signed (certificates are pricey, and this is a free open-source project).
 - No worries, it's safe to run. The EXE is the same code you can read on GitHub.
 - **To continue:** Click "More info" and "Run anyway", Windows won't nag you again for the same .exe. 
-- **Want extra peace of mind?** - You can review the code, build it yourself, or use the standalone Python script like in Option 2.
+- **Want extra peace of mind?** - You can review the code, build it yourself, or use the standalone Python script.
 
 **Windows 7: Missing DLL or Failed to load Python Errors**
 - If the app won't launch on Windows 7 and you see errors like "api-ms-win-core-path-l1-1-0.dll not found" or "Failed to load Python DLL," Windows 7 is missing a DLL required by Python 3.11+.
@@ -151,42 +151,3 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
