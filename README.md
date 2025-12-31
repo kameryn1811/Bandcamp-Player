@@ -17,10 +17,10 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 * **Adjustable Playlist** - Minimize, expand, resize or detach the playlist for flexible window management.
 * **Always on Top** - Keep the player visible while working in other applications.
 * **Keyboard Shortcuts** - Full keyboard control for play, pause, next, previous, volume, and more (customizable in the settings menu). Global keyboard shortcuts available with included `bandcamp_player_hotkeys.ahk` script ([Autohotkey v2 installation](https://www.autohotkey.com/v2/) required)
-* **Autoplay** - Automatically starting playing on startup and when switching albums. 
-* **Shuffle & Repeat** - Multiple shuffle and repeat modes for varied listening.
-* **Volume Control** - Adjustable volume with visual feedback.
-* **Image Viewer** - Zoom and pan the artwork for a better look. 
+* **Autoplay** - Automatically start playback on launch and when switching albums. 
+* **Shuffle & Repeat** - Multiple playback modes for varied listening.
+* **Volume Control** - Adjustable volume.
+* **Image Viewer** - Zoom and pan artwork for a better look. 
 * **Dark Theme** - Beautiful dark interface that's easy on the eyes.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
@@ -151,6 +151,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
