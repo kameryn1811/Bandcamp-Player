@@ -144,10 +144,11 @@ This project was inspired by [Robert Golderbine's Companion Window | Always on T
 This tool is designed for:
 * Streaming freely available music from Bandcamp
 * Personal use of music you own or have permission to stream
-* Building a local playlist of your favorite Bandcamp content
+* Building a local playlist of new music you want to preview before buying
 
 Please respect copyright laws and Bandcamp's terms of service. Support artists by purchasing music when possible.
 
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
