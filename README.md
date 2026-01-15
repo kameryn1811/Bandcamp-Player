@@ -24,12 +24,16 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 * **Dark Theme** - Beautiful dark interface that's easy on the eyes.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
-
-<img alt="main-player-interface" src="images/main-v1.0.0.png" />
-
 *Note: Mini mode features optional player autohide so the artwork is fully viewable*
-
 *Note: Nano mode features optional autohide when docked to the top or bottom of the screen*
+
+<img alt="main-player-interface" src="images/main-v2.0.0.png" />
+
+*The image viewer interface with fullscreen player playlist, visualizer and particles effects available.*
+
+<img alt="main-player-interface" src="images/main-v2.0.0.png" />
+
+
 
 ## Technology & Approach
 
@@ -151,5 +155,6 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
