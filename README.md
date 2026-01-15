@@ -20,7 +20,7 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 * **Autoplay** - Automatically start playback on launch and when switching albums. 
 * **Shuffle & Repeat** - Multiple playback modes for varied listening.
 * **Volume Control** - Adjustable volume.
-* **Image Viewer** - Zoom and pan artwork for a better look. 
+* **Image Viewer** - Click on the magnifying glass in Regular nad Mini mode to aoom and pan artwork and view it fullscreen with player and visualization/particle effects. 
 * **Dark Theme** - Beautiful dark interface that's easy on the eyes.
 
 *The main player interface with compact playlist, regular/mini/micro and nano modes.*
@@ -44,7 +44,8 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 ### Core Stack
 
 - **PyQt6** – Cross-platform desktop framework for window management
-- **PyQt6-WebEngine** – Embedded Chromium browser used to load Bandcamp’s mobile site with full DOM access  
+- **PyQt6-WebEngine** – Embedded Chromium browser used to load Bandcamp’s mobile site with full DOM access
+- **Fully Qt-painted interface** - Improved interface management, stability, and extensibility.
 - **QtAwesome** – FontAwesome icons
   
 ## Quick Start
@@ -155,6 +156,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
