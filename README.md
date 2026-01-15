@@ -30,6 +30,7 @@ A compact, Python-based mini player for streaming music directly from Bandcamp. 
 <img alt="main-player-interface" src="images/main-v2.0.0.png" />
 
 *The image viewer interface with fullscreen player playlist, visualizer and particles effects available.*
+*Note: Click on magnfying glass icon in regular and mini mode to access the image viewer*
 
 <img width="720" alt="image-viewer-interface" src="images/image-viewer-v2.0.0.png" />
 
@@ -156,6 +157,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
