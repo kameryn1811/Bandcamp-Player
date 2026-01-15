@@ -60,11 +60,18 @@ a = Analysis(
         'unittest',
         'pydoc',
         'doctest',
+        # PyQt6 modules not used by this app (conservative list)
+        # Note: QtWebEngine is still bundled (size is dominated by Chromium).
+        'PyQt6.QtMultimedia',
+        'PyQt6.QtMultimediaWidgets',
+        'PyQt6.QtSql',
+        'PyQt6.QtTest',
+        'PyQt6.QtDesigner',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
-    noarchive=False,  # Keep as False - onefile mode extracts faster than noarchive=True
+    noarchive=False,
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -72,21 +79,13 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+    [],
     [],
     name='BandcampPlayer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,  # Compress executable (reduces size)
-    upx_exclude=[
-        # Don't compress PyQt6-WebEngine binaries (they're already optimized and compression slows extraction)
-        'PyQt6',
-        'QtWebEngine',
-        'Qt6WebEngine',
-    ],
+    upx=False,  # Faster startup (avoid UPX decompression / AV overhead)
     runtime_tmpdir=None,  # Use default temp dir (faster than custom location for antivirus)
     console=False,  # Hide console window - launch silently
     disable_windowed_traceback=False,
@@ -94,6 +93,17 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico'  # Use the same icon as the main app
+    icon='icon.ico',  # Use the same icon as the main app
+    exclude_binaries=True,  # onedir: collect binaries separately (no onefile extraction)
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    name='BandcampPlayer'
 )
 

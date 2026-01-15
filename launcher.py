@@ -4,7 +4,7 @@ Self-contained launcher that bundles Python and auto-updates the main script.
 """
 
 # Launcher version (update this when releasing a new launcher.exe)
-__version__ = "1.0.1"
+__version__ = "2.0.0"
 
 import sys
 import os
@@ -15,13 +15,10 @@ import subprocess
 from pathlib import Path
 import json
 import shutil
-import tempfile
 
 # GitHub repository information
 REPO_OWNER = "kameryn1811"
 REPO_NAME = "Bandcamp-Player"
-GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
-LAUNCHER_RELEASE_TAG = "Launcher"  # Tag for launcher.exe releases
 SCRIPT_NAME = "bandcamp_pl_gui.py"
 LAUNCHER_EXE_NAME = "BandcampPlayer.exe"
 
@@ -43,7 +40,6 @@ GUI_SETTINGS_FILE = LAUNCHER_DIR / "settings.json"  # GUI's settings file
 UPDATE_STATUS_FILE = LAUNCHER_DIR / "update_status.json"
 UPDATE_DOWNLOAD_FLAG = LAUNCHER_DIR / "update_download_flag.json"  # Flag file to trigger download from GUI
 LAUNCHER_EXE_PATH = Path(sys.executable) if hasattr(sys, 'frozen') else None
-LAUNCHER_UPDATE_TEMP = Path(tempfile.gettempdir()) / "BandcampPlayer_new.exe"
 
 
 def show_error_dialog(title, message, details=None):
@@ -512,124 +508,6 @@ def run_script_directly():
         return False
 
 
-def download_launcher_update(download_url, expected_version, expected_size=0):
-    """Download new launcher.exe to temp location.
-    
-    Args:
-        download_url: URL to download launcher.exe from
-        expected_version: Expected version string
-        expected_size: Expected file size from manifest (0 = don't verify)
-    
-    Returns:
-        True if download successful, False otherwise
-    """
-    try:
-        import requests
-        write_update_status(f"Downloading launcher v{expected_version}...", expected_version)
-        
-        response = requests.get(download_url, timeout=60, stream=True)
-        response.raise_for_status()
-        
-        # Download to temp location
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        
-        with open(LAUNCHER_UPDATE_TEMP, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-        
-        # Verify download
-        if total_size > 0 and downloaded != total_size:
-            write_update_status(f"Warning: Download size mismatch (expected {total_size}, got {downloaded})")
-            return False
-        
-        # Verify against manifest size if provided
-        if expected_size > 0:
-            actual_size = LAUNCHER_UPDATE_TEMP.stat().st_size
-            if actual_size != expected_size:
-                write_update_status(f"Warning: File size mismatch (manifest: {expected_size}, actual: {actual_size})")
-        
-        # Verify it's actually an exe file (basic check)
-        if LAUNCHER_UPDATE_TEMP.stat().st_size < 1000:
-            write_update_status("Error: Downloaded file appears to be invalid")
-            LAUNCHER_UPDATE_TEMP.unlink(missing_ok=True)
-            return False
-        
-        write_update_status(f"Launcher v{expected_version} downloaded successfully. Restart required.", expected_version)
-        return True
-    except Exception as e:
-        write_update_status(f"Error downloading launcher update: {e}")
-        LAUNCHER_UPDATE_TEMP.unlink(missing_ok=True)
-        return False
-
-
-def apply_launcher_update(show_dialog=True):
-    """Apply downloaded launcher update by replacing old exe and relaunching.
-    
-    Uses Windows-safe approach: rename old exe first, then move new one.
-    
-    Args:
-        show_dialog: If True, show confirmation dialog. If False, proceed automatically.
-    """
-    if not LAUNCHER_UPDATE_TEMP.exists():
-        return False
-    
-    if not LAUNCHER_EXE_PATH or not LAUNCHER_EXE_PATH.exists():
-        return False
-    
-    try:
-        # Show user feedback only if requested
-        if show_dialog:
-            try:
-                import tkinter.messagebox as messagebox
-                response = messagebox.askyesno(
-                    "Apply Launcher Update",
-                    "A launcher update is ready to be applied.\n\nThe application will close and restart automatically with the new version.\n\nProceed now?"
-                )
-                if not response:
-                    write_update_status("Launcher update declined by user.")
-                    return False
-            except Exception:
-                pass
-        
-        # Windows-safe approach: can't replace a file that's in use
-        old_exe_backup = LAUNCHER_EXE_PATH.with_suffix('.exe.old')
-        
-        # Remove any existing .old file
-        if old_exe_backup.exists():
-            try:
-                old_exe_backup.unlink()
-            except Exception:
-                pass
-        
-        # Rename current exe to .old
-        try:
-            LAUNCHER_EXE_PATH.rename(old_exe_backup)
-        except Exception as e:
-            write_update_status(f"Error: Could not rename old exe: {e}")
-            return False
-        
-        # Now move new exe into place
-        shutil.move(LAUNCHER_UPDATE_TEMP, LAUNCHER_EXE_PATH)
-        
-        # Make sure it's executable (Unix-like systems)
-        try:
-            os.chmod(LAUNCHER_EXE_PATH, 0o755)
-        except:
-            pass
-        
-        # Clean up old exe and close application
-        write_update_status("Launcher updated successfully. Closing application...")
-        cleanup_old_exe_and_close(old_exe_backup)
-        
-        return True
-    except Exception as e:
-        write_update_status(f"Error applying launcher update: {e}")
-        return False
-
-
 def check_launcher_update(silent=False):
     """Check for launcher.exe updates.
     
@@ -717,165 +595,6 @@ def show_launcher_update_dialog(current_version, latest_version, release_url):
         write_update_status(f"Error showing launcher update dialog: {e}")
 
 
-def download_launcher_update_with_progress(download_url, expected_version, expected_size, progress_label, dialog):
-    """Download launcher update with progress feedback."""
-    try:
-        import requests
-        
-        response = requests.get(download_url, timeout=60, stream=True)
-        response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        
-        with open(LAUNCHER_UPDATE_TEMP, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    
-                    # Update progress
-                    if total_size > 0:
-                        percent = (downloaded / total_size) * 100
-                        size_mb = downloaded / (1024 * 1024)
-                        total_mb = total_size / (1024 * 1024)
-                        progress_text = f"{percent:.1f}% ({size_mb:.1f} MB / {total_mb:.1f} MB)"
-                    else:
-                        size_mb = downloaded / (1024 * 1024)
-                        progress_text = f"{size_mb:.1f} MB downloaded"
-                    
-                    dialog.after(0, lambda t=progress_text: progress_label.config(text=t))
-                    dialog.update()
-        
-        # Verify download
-        if total_size > 0 and downloaded != total_size:
-            write_update_status(f"Warning: Download size mismatch (expected {total_size}, got {downloaded})")
-            return False
-        
-        # Verify file size
-        if LAUNCHER_UPDATE_TEMP.stat().st_size < 1000:
-            write_update_status("Error: Downloaded file appears to be invalid")
-            LAUNCHER_UPDATE_TEMP.unlink(missing_ok=True)
-            return False
-        
-        write_update_status(f"Launcher v{expected_version} downloaded successfully.", expected_version)
-        return True
-        
-    except Exception as e:
-        write_update_status(f"Error downloading launcher update: {e}")
-        LAUNCHER_UPDATE_TEMP.unlink(missing_ok=True)
-        return False
-
-
-def cleanup_old_exe_and_close(old_exe_path):
-    """Clean up old exe file after update is applied and close the application."""
-    try:
-        # Create a simple batch script to clean up the old exe file
-        batch_script = LAUNCHER_DIR / "cleanup_old_exe.bat"
-        
-        old_exe_escaped = str(old_exe_path)
-        
-        with open(batch_script, 'w') as f:
-            f.write(f"""@echo off
-REM Wait for the process to fully exit
-timeout /t 3 /nobreak >nul
-
-REM Try to delete old exe file
-if exist "{old_exe_escaped}" (
-    del /f /q "{old_exe_escaped}" 2>nul
-    REM If still exists, try renaming and deleting
-    if exist "{old_exe_escaped}" (
-        timeout /t 1 /nobreak >nul
-        ren "{old_exe_escaped}" "{old_exe_escaped}.delete" 2>nul
-        if exist "{old_exe_escaped}.delete" (
-            del /f /q "{old_exe_escaped}.delete" 2>nul
-        )
-    )
-)
-
-REM Clean up this batch script
-timeout /t 2 /nobreak >nul
-del /f /q "%~f0" 2>nul
-""")
-        
-        # Launch the batch script (detached, so it continues after we exit)
-        if sys.platform == 'win32':
-            # Create a VBScript to run the batch file hidden
-            vbscript = LAUNCHER_DIR / "cleanup_old_exe.vbs"
-            with open(vbscript, 'w') as f:
-                f.write(f"""Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run chr(34) & "{batch_script}" & chr(34), 0, False
-Set WshShell = Nothing
-""")
-            
-            # Launch the VBScript
-            try:
-                subprocess.Popen(
-                    ['wscript.exe', str(vbscript)],
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-                )
-            except (AttributeError, ValueError):
-                try:
-                    subprocess.Popen(
-                        ['wscript.exe', str(vbscript)],
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                    )
-                except (AttributeError, ValueError):
-                    subprocess.Popen(['wscript.exe', str(vbscript)])
-            
-            # Clean up VBScript after a delay
-            def cleanup_vbs():
-                time.sleep(10)
-                try:
-                    if vbscript.exists():
-                        vbscript.unlink()
-                except:
-                    pass
-            
-            threading.Thread(target=cleanup_vbs, daemon=True).start()
-        
-        write_update_status("Update applied. Closing application...")
-        
-        # Force close GUI window if possible
-        try:
-            import tkinter as tk
-            root = tk._default_root
-            if root:
-                root.quit()
-                root.destroy()
-        except Exception:
-            pass
-        
-        # Small delay to let GUI close
-        time.sleep(0.5)
-        
-        # Exit current process
-        os._exit(0)
-        
-    except Exception as e:
-        write_update_status(f"Error during update: {e}")
-        try:
-            os._exit(0)
-        except:
-            sys.exit(0)
-
-
-def cleanup_old_exe():
-    """Clean up old exe file from previous update.
-    
-    Returns:
-        True if an old exe was found and cleaned up (indicating we just updated)
-    """
-    try:
-        old_exe = LAUNCHER_EXE_PATH.with_suffix('.exe.old')
-        if old_exe.exists():
-            old_exe.unlink()
-            return True
-    except Exception:
-        pass
-    return False
-
-
 # Installing dialog removed - was causing blank window issues
 # Extraction now happens silently before GUI is created
 
@@ -898,33 +617,6 @@ def main():
                 kernel32.FreeConsole()
         except Exception:
             pass  # Silently fail if console hiding doesn't work
-    
-    # Clean up old exe from previous update (if any)
-    was_updated = cleanup_old_exe()
-    
-    # Check for pending launcher update first (from previous session)
-    if hasattr(sys, 'frozen') and LAUNCHER_UPDATE_TEMP.exists() and LAUNCHER_EXE_PATH:
-        try:
-            if apply_launcher_update(show_dialog=False):
-                # apply_launcher_update() will handle launching the new exe and exiting
-                return
-        except Exception as e:
-            write_update_status(f"Error applying launcher update: {e}")
-    
-    # Show update complete message if we just updated
-    if was_updated:
-        def show_update_complete():
-            try:
-                time.sleep(0.5)
-                import tkinter.messagebox as messagebox
-                messagebox.showinfo(
-                    "Update Complete",
-                    "Launcher has been successfully updated!\n\nThe application is now running the latest version."
-                )
-            except Exception:
-                pass
-        
-        threading.Thread(target=show_update_complete, daemon=True).start()
     
     # Extract bundled files to launcher directory if needed
     def extract_bundled_files():
@@ -1042,7 +734,8 @@ def main():
     # Check for download flag periodically (every 2 seconds)
     def monitor_download_flag():
         while True:
-            time.sleep(2)
+            # No need to poll aggressively; user-triggered updates are infrequent.
+            time.sleep(5)
             check_download_flag()
     
     # Start flag monitor in background
