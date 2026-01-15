@@ -2,7 +2,7 @@
 
 # <img src="images/icon-title (new).png" width="32" height="32" alt="Icon"> Bandcamp Player (Python Edition)
 
-[![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v1.0.1)
+[![Download](images/download-button.png)](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v2.0.0_Beanbagbeni_Edition)
 
 </div>
 
@@ -51,7 +51,7 @@ As a work around Bandcamp Player embeds a customized version of Bandcamp's mobil
 
 **Installation**
 
-1. Download [BandcampPlayer.exe](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v1.0.1) and run it! (everything else is automatic)
+1. Download [BandcampPlayer.exe](https://github.com/kameryn1811/Bandcamp-Player/releases/tag/Launcher_v2.0.0_Beanbagbeni_Edition) and run it! (everything else is automatic)
 2. **Note:** You may see a Windows Defender SmartScreen Warning, see [Troubleshooting](#troubleshooting) for more information. 
 3. What it Does:
    - Downloads the latest `bandcamp_pl_gui.py` script from GitHub and Launches it
@@ -155,6 +155,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
