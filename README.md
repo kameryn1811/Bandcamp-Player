@@ -70,6 +70,12 @@ As a work around Bandcamp Player loads Bandcamps native player in the backround 
 5. **Window Modes**: Switch between Regular, Mini, Micro, and Nano modes from the title bar.
 6. **Playlists**: Create multiple playlists and switch between them using the playlist menu.
 
+## Image Viewer (Fullscreen Cover Art with player)  
+
+<img alt="image viewer button" src="images/Image viewer button.png" /> **Image Viewer Button** - Click on the magnifying glass icon in Regular or mini mode to access the image viewer (full screen mode).
+
+<img alt="image viewer button" src="images/vis-menu.png" /> **Image Viewer Player Options** - Options to toggle player autohide, visualization, particle effects and more. (Note: Visualizations currently use simulated audio analysis (fake) since I haven't succeeded in analyzing the streamed audio in realtime yet)
+
 ## Shuffle & Repeat Modes  <img alt="shuffle-repeat" src="images/shuffle-repeat.png" />
 
 <img alt="shuffle-tracks" src="images/shuffle-tracks.png" /> **Shuffle Tracks** – shuffle tracks within the current album  
@@ -157,6 +163,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
