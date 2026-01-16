@@ -65,7 +65,7 @@ As a work around Bandcamp Player loads Bandcamps native player in the backround 
 
 1. **Add URLs**: Drag and drop or Paste Bandcamp URLs into the main window (to load it right away) or into the playlist (to create a queue).
 3. **Play Music**: Double click on an album in the playlist to load the url and start playing.
-4. **Player Controls**: Use the Play controls or keyboard shortcuts to navigate albums and tracks, and adjust play modes (see [Shuffle & Repeat Modes](#[shuffle](#shuffle--repeat-modes--)).
+4. **Player Controls**: Use the Play controls or keyboard shortcuts to navigate albums and tracks, and adjust play modes (see [Shuffle & Repeat Modes](#shuffle--repeat-modes--)).
 6. **Playlist**: Use the Playlist to manage Bandcamp albums, you can add/remove, reorder, load artist discography, save and load playlists and more. The playlist can act as a sidebar (attached to the main window) or be detached for more felxibility (the detached playlist can be resized, docked to the main window and will remember its state/position)
 7. **Window Modes**: Switch between Regular, Mini, Micro, and Nano modes from the title bar.
 8. **Image Viewer**: Click on the magnifying glass in Regular or Mini mode to enter Image viewer - complete with player and effects for a fullscreen experience. 
@@ -168,6 +168,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
