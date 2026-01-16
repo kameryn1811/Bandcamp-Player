@@ -68,7 +68,7 @@ As a work around Bandcamp Player loads Bandcamps native player in the backround 
 4. **Player Controls**: Use the Play controls or keyboard shortcuts to navigate albums and tracks, and adjust play modes (see [Shuffle & Repeat Modes](#shuffle--repeat-modes--)).
 6. **Playlist**: Use the Playlist to manage Bandcamp albums, you can add/remove, reorder, load artist discography, save and load playlists and more. The playlist can act as a sidebar (attached to the main window) or be detached for more felxibility (the detached playlist can be resized, docked to the main window and will remember its state/position)
 7. **Window Modes**: Switch between Regular, Mini, Micro, and Nano modes from the title bar.
-8. **Image Viewer**: Click on the magnifying glass in Regular or Mini mode to enter Image viewer - complete with player and effects for a fullscreen experience. 
+8. **Image Viewer**: Click on the [Magnifying Glass Icon](#image-viewer-fullscreen-cover-art-with-player) in Regular or Mini mode to enter Image viewer - complete with player and effects for a fullscreen experience. 
 10. **Settings Menu**: show the menu from the top right of regular, mini or micro mode and select the settings icon to view several additional settings like Autoplay settings, Update settings, Keyboard Shortcuts and More. 
 
 ## Image Viewer (Fullscreen Cover Art with player)  
@@ -168,6 +168,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
