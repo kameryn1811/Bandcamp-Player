@@ -46,8 +46,8 @@ As a work around Bandcamp Player loads Bandcamps native player in the backround 
 
 - **PyQt6** – Cross-platform desktop framework for window management
 - **PyQt6-WebEngine** – Embedded Chromium browser used to load Bandcamp’s mobile site with full DOM access
-- **Fully Qt-painted interface** - Improved interface management, stability, and extensibility.
-- **QtAwesome** – FontAwesome icons
+- **Qt-Painted Interface** - Fully customizable Qt interface used for reliability and extensibility
+- **QtAwesome** – FontAwesome icons for consistency acroos platforms
   
 ## Quick Start
 
@@ -168,6 +168,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
