@@ -116,7 +116,7 @@ As a work around Bandcamp Player loads Bandcamps native player in the backround 
 
 **Please Note**
 - Documentation is still improving
-- There will be dragons/bugs, feel free to report any issues, this should be a stable release but there are some bugs. To resolve them you can try: loading another url, restarting the app, and if you're stuck rename or delete settings.json and/or Playlists folder to do a factory reset.
+- This should be a stable release but you may encounter bugs, please feel free to report any issues or suggestions. Issues can usually be resolved by loading another url, restarting the app, and if you're stuck rename or delete settings.json and/or Playlists folder to do a factory reset.
 
 **Windows SmartScreen Warning**
 - When you open BandcampPlayer.exe for the first time, Windows might say: "Windows protected your PC"
@@ -170,6 +170,7 @@ Please respect copyright laws and Bandcamp's terms of service. Support artists b
 ## Disclaimer
 
 This software is provided as-is for educational and personal use. The developers are not responsible for misuse. Please use responsibly and support the artists whose music you enjoy.
+
 
 
 
